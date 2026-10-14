@@ -1,0 +1,33 @@
+# apsonicui is an independent repository with its own history and remote.
+# It is intentionally NOT tracked here (no nesting/submodule without a decision).
+/apsonicui/
+
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+*.pem
+
+# User-uploaded media (to move to Aliyun OSS); never commit
+/backend/uploads/
+
+# Build output, logs, IDE state, OS files
+target/
+node_modules/
+.next/
+out/
+*.log
+*.class
+.idea/
+.DS_Store
+.claude/settings.local.json
+gatling-test/gatling.zip
+
+# Ad-hoc scratch files from early development (contain dev credentials / call debug endpoint).
+# Backed up in _backup_2026-10-14; removed from the working tree in a separate reviewed change.
+/login.json
+/payload*.json
+/test-*.sh
+/GenerateHash.java
+/test.java
+/update_report*.js

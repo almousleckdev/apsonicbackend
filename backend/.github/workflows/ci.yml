@@ -1,0 +1,28 @@
+name: CI
+
+# NOTE: this workflow is scaffolding for when this directory is added to
+# source control - the backend has no git repository yet (checked as part of
+# the Phase 0/1 audit), so nothing here runs until it does. Requires Docker
+# on the runner for the Testcontainers-based integration tests (ubuntu-latest
+# provides it by default).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+
+      - name: Build and test
+        run: ./mvnw -B verify
