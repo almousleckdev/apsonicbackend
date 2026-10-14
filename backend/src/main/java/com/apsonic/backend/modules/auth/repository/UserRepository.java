@@ -24,6 +24,8 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
 
     boolean existsByEmail(String email);
 
+    boolean existsByEnabledTrueAndRoles_Name(String roleName);
+
     @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"roles"})
     Page<User> findAll(org.springframework.data.jpa.domain.Specification<User> spec, Pageable pageable);
 
