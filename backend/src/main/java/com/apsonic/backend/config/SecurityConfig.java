@@ -5,10 +5,12 @@ import com.apsonic.backend.security.JwtAuthenticationEntryPoint;
 import com.apsonic.backend.security.jwt.JwtAuthenticationFilter;
 import com.apsonic.backend.shared.filter.TraceIdFilter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -45,12 +47,21 @@ public class SecurityConfig {
             "/api/v1/cms/**",
             "/api/v1/pages/**",
             "/uploads/**",
-            "/v3/api-docs/**",
-            "/swagger-ui/**",
-            "/swagger-ui.html",
-            "/actuator/**",
+            "/actuator/health",
+            "/actuator/health/**",
             "/error"
     };
+
+    private static final String[] API_DOC_URLS = {
+            "/v3/api-docs",
+            "/v3/api-docs/**",
+            "/swagger-ui/**",
+            "/swagger-ui.html"
+    };
+
+    /** API documentation is public only where explicitly enabled (local development). */
+    @Value("${app.security.public-api-docs:false}")
+    private boolean publicApiDocs;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -76,6 +87,10 @@ public class SecurityConfig {
                 )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PUBLIC_URLS).permitAll()
+                        .requestMatchers(API_DOC_URLS).access((authentication, context) ->
+                                new AuthorizationDecision(publicApiDocs))
+                        // Any other actuator endpoint (metrics, prometheus, ...) is for Super Admins only.
+                        .requestMatchers("/actuator/**").hasRole("SUPER_ADMIN")
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .anyRequest().authenticated()
                 )

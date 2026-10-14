@@ -10,6 +10,30 @@ spring:
       hibernate:
         format_sql: true
 
+server:
+  error:
+    include-message: always
+    include-binding-errors: always
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+
+app:
+  security:
+    public-api-docs: true
+
 logging:
   level:
     root: ${LOGGING_LEVEL_ROOT:INFO}

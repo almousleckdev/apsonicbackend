@@ -3,7 +3,7 @@ spring:
     # Local convenience: load secrets from backend/.env (git-ignored). Real environment variables win in deployments.
     import: optional:file:.env[.properties]
   profiles:
-    active: ${SPRING_PROFILES_ACTIVE:local}
+    active: ${SPRING_PROFILES_ACTIVE:prod}
   application:
     name: apsonic-backend-cms
 
@@ -69,32 +69,35 @@ server:
     max-swallow-size: 100MB
     max-http-form-post-size: 100MB
   error:
-    include-message: always
-    include-binding-errors: always
+    include-message: never
+    include-binding-errors: never
     include-stacktrace: never
     include-exception: false
 
-# Actuator Operational & Monitoring Endpoints
+# Actuator: only the health probe is exposed by default (load balancer / container checks).
+# Richer endpoints are enabled in the local profile only.
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,prometheus
+        include: health
       base-path: /actuator
   endpoint:
     health:
-      show-details: always
+      show-details: never
   health:
     db:
       enabled: true
     diskspace:
       enabled: true
 
-# OpenAPI / Swagger Documentation
+# OpenAPI / Swagger documentation is off unless a profile enables it (see application-local.yml).
 springdoc:
   api-docs:
+    enabled: false
     path: /v3/api-docs
   swagger-ui:
+    enabled: false
     path: /swagger-ui.html
     operations-sorter: alpha
     tags-sorter: alpha
@@ -107,6 +110,7 @@ app:
     email: ${BOOTSTRAP_ADMIN_EMAIL:}
     password: ${BOOTSTRAP_ADMIN_PASSWORD:}
   security:
+    public-api-docs: false
     jwt:
       secret: ${JWT_SECRET}
       expiration-ms: ${JWT_ACCESS_EXPIRATION_MS:900000}
