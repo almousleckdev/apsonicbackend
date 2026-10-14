@@ -4,6 +4,13 @@ spring:
     activate:
       on-profile: local
 
+  flyway:
+    # Local databases created before validation was enforced may carry edited migrations. Set both back to the
+    # strict defaults (validate true / baseline false) once your local database has been recreated.
+    validate-on-migrate: false
+    baseline-on-migrate: true
+    baseline-version: 0
+
   jpa:
     show-sql: true
     properties:

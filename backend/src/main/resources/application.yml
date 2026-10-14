@@ -44,9 +44,12 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
-    baseline-on-migrate: true
-    baseline-version: 0
-    validate-on-migrate: false
+    # Strict by default: a changed/missing applied migration fails startup instead of silently drifting, and an
+    # existing schema without history is never auto-baselined (which would skip every migration).
+    baseline-on-migrate: false
+    validate-on-migrate: true
+    clean-disabled: true
+    out-of-order: false
 
   # Redis Configuration
   data:
