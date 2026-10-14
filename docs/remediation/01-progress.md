@@ -15,9 +15,10 @@
 | H6 | Actuator/Swagger public, debug-by-default profile, error detail | Fixed: prod is the default; docs/actuator locked down | see git log |
 | M3 | No security headers / CSP | Fixed on API and site; nonce CSP verified in a browser | see git log |
 | -  | All client errors returned 500 + stack trace | Fixed (404/405/400/415/413) | see git log |
+| H3 | CMS HTML rendered unsanitized (stored XSS; the NewsContent "sanitizer" only stripped CSS classes) | Fixed: OWASP allow-list sanitizer in the backend on save AND on read (news HTML, CMS section config, published snapshots); 41 payload tests + 3 end-to-end tests | see git log |
 | -  | Frontend production build broken | Fixed (5 type errors) | apsonicui af0c89b |
 
-Open: H3 (HTML sanitising).
+Open: M4 (Flyway validation), M5 (pool sizing).
 
 ## Accepted risks
 - Dev-only npm advisories (`braces`/`micromatch`/`fast-glob` via `eslint-config-next`): not in the production bundle;
@@ -63,3 +64,12 @@ resources have been created or modified):
   GitHub raw GeoJSON, configured image hosts). A new embed or CDN needs `lib/security/csp.ts` updated.
 - `style-src` still allows `'unsafe-inline'` (framer-motion/Tiptap/Mapbox need inline styles).
 - HSTS is sent by both tiers; confirm the domain is HTTPS-only before the first production deploy.
+
+## HTML sanitisation (H3)
+- One policy (`shared/html/HtmlSanitizer`): text structure, links (http/https/mailto/tel, forced `rel=noopener noreferrer`),
+  images, YouTube embeds, uploaded video, text-align. Everything else (scripts, handlers, forms, SVG/MathML,
+  other iframes, other URL schemes, other inline styles) is removed.
+- Applied on save and on read, so rows stored before the fix are safe without a migration, and it is idempotent.
+- Only strings that contain markup are processed; plain text (titles, URLs, labels) is never entity-encoded.
+- A new editor feature that needs more tags/attributes must extend the policy and its test corpus.
+- Defence in depth: the site CSP blocks inline event handlers and eval even if a payload slipped through.

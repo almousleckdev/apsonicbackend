@@ -5,6 +5,7 @@ import com.apsonic.backend.modules.news.domain.NewsSection;
 import com.apsonic.backend.modules.news.dto.NewsDetailResponse;
 import com.apsonic.backend.modules.news.dto.NewsResponse;
 import com.apsonic.backend.modules.news.dto.NewsSectionDto;
+import com.apsonic.backend.shared.html.HtmlSanitizer;
 import org.springframework.stereotype.Component;
 
 import java.util.Collections;
@@ -13,6 +14,13 @@ import java.util.stream.Collectors;
 
 @Component
 public class NewsMapper {
+
+    private final HtmlSanitizer htmlSanitizer;
+
+    public NewsMapper(HtmlSanitizer htmlSanitizer) {
+        this.htmlSanitizer = htmlSanitizer;
+    }
+
 
     public NewsResponse toNewsResponse(News news, String locale) {
         if (news == null) return null;
@@ -69,10 +77,10 @@ public class NewsMapper {
                 .summaryEn(news.getSummaryEn())
                 .summaryFr(news.getSummaryFr())
                 .summaryZh(news.getSummaryZh())
-                .contentHtml(resolvedContentHtml)
-                .contentHtmlEn(news.getContentHtmlEn())
-                .contentHtmlFr(news.getContentHtmlFr())
-                .contentHtmlZh(news.getContentHtmlZh())
+                .contentHtml(htmlSanitizer.sanitize(resolvedContentHtml))
+                .contentHtmlEn(htmlSanitizer.sanitize(news.getContentHtmlEn()))
+                .contentHtmlFr(htmlSanitizer.sanitize(news.getContentHtmlFr()))
+                .contentHtmlZh(htmlSanitizer.sanitize(news.getContentHtmlZh()))
                 .coverImageUrl(news.getCoverImageUrl())
                 .category(news.getCategory())
                 .authorName(news.getAuthorName())

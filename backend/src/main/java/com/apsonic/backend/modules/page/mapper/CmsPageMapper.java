@@ -7,6 +7,7 @@ import com.apsonic.backend.modules.page.dto.CmsPageDto;
 import com.apsonic.backend.modules.page.dto.CmsPageSectionDto;
 import com.apsonic.backend.modules.page.dto.CmsPageTranslationDto;
 import com.apsonic.backend.modules.page.dto.NavigationItemDto;
+import com.apsonic.backend.shared.html.HtmlSanitizer;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
@@ -15,6 +16,12 @@ import java.util.stream.Collectors;
 
 @Component
 public class CmsPageMapper {
+
+    private final HtmlSanitizer htmlSanitizer;
+
+    public CmsPageMapper(HtmlSanitizer htmlSanitizer) {
+        this.htmlSanitizer = htmlSanitizer;
+    }
 
     public CmsPageDto toDto(CmsPage page) {
         if (page == null) {
@@ -41,7 +48,7 @@ public class CmsPageMapper {
                 .navPosition(page.getNavPosition())
                 .navOrder(page.getNavOrder())
                 .translations(translationDtos)
-                .publishedSnapshot(page.getPublishedSnapshot())
+                .publishedSnapshot(htmlSanitizer.sanitizeTree(page.getPublishedSnapshot()))
                 .publishedAt(page.getPublishedAt())
                 .createdAt(page.getCreatedAt())
                 .updatedAt(page.getUpdatedAt())
@@ -59,7 +66,7 @@ public class CmsPageMapper {
                 .id(section.getId())
                 .sectionType(section.getSectionType())
                 .sectionOrder(section.getSectionOrder())
-                .configuration(section.getConfiguration())
+                .configuration(htmlSanitizer.sanitizeTree(section.getConfiguration()))
                 .build();
     }
 

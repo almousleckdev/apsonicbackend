@@ -41,6 +41,9 @@ class NewsServiceTest {
     @Mock
     private NewsMapper newsMapper;
 
+    @org.mockito.Spy
+    private com.apsonic.backend.shared.html.HtmlSanitizer htmlSanitizer = new com.apsonic.backend.shared.html.HtmlSanitizer();
+
     @InjectMocks
     private NewsServiceImpl newsService;
 

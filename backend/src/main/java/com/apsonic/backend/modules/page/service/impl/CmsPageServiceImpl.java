@@ -13,6 +13,7 @@ import com.apsonic.backend.modules.page.service.CmsPageService;
 import com.apsonic.backend.shared.exception.DuplicateResourceException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.apsonic.backend.shared.html.HtmlSanitizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -32,6 +33,7 @@ public class CmsPageServiceImpl implements CmsPageService {
     private final CmsPageRevisionRepository cmsPageRevisionRepository;
     private final CmsPageMapper cmsPageMapper;
     private final ObjectMapper objectMapper;
+    private final HtmlSanitizer htmlSanitizer;
 
     @Override
     @Transactional(readOnly = true)
@@ -58,7 +60,7 @@ public class CmsPageServiceImpl implements CmsPageService {
         dto.setId(page.getId());
         dto.setSlug(page.getSlug());
         dto.setStatus(page.getStatus());
-        dto.setPublishedSnapshot(page.getPublishedSnapshot());
+        dto.setPublishedSnapshot(htmlSanitizer.sanitizeTree(page.getPublishedSnapshot()));
         dto.setPublishedAt(page.getPublishedAt());
         return dto;
     }
@@ -220,7 +222,7 @@ public class CmsPageServiceImpl implements CmsPageService {
             CmsPageSection section = CmsPageSection.builder()
                     .sectionType(dto.getSectionType())
                     .sectionOrder(i) // Force exact array order
-                    .configuration(dto.getConfiguration())
+                    .configuration(htmlSanitizer.sanitizeTree(dto.getConfiguration()))
                     .build();
             page.addSection(section);
         }

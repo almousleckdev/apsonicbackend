@@ -8,6 +8,7 @@ import com.apsonic.backend.modules.news.repository.NewsRepository;
 import com.apsonic.backend.modules.news.service.NewsService;
 import com.apsonic.backend.modules.news.util.NewsSlugHelper;
 import com.apsonic.backend.shared.exception.ResourceNotFoundException;
+import com.apsonic.backend.shared.html.HtmlSanitizer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -22,6 +23,7 @@ public class NewsServiceImpl implements NewsService {
 
     private final NewsRepository newsRepository;
     private final NewsMapper newsMapper;
+    private final HtmlSanitizer htmlSanitizer;
 
     @Override
     @Transactional(readOnly = true)
@@ -74,9 +76,9 @@ public class NewsServiceImpl implements NewsService {
                 .summaryEn(request.getSummaryEn())
                 .summaryFr(request.getSummaryFr())
                 .summaryZh(request.getSummaryZh())
-                .contentHtmlEn(request.getContentHtmlEn())
-                .contentHtmlFr(request.getContentHtmlFr())
-                .contentHtmlZh(request.getContentHtmlZh())
+                .contentHtmlEn(htmlSanitizer.sanitize(request.getContentHtmlEn()))
+                .contentHtmlFr(htmlSanitizer.sanitize(request.getContentHtmlFr()))
+                .contentHtmlZh(htmlSanitizer.sanitize(request.getContentHtmlZh()))
                 .slug(slug)
                 .category(request.getCategory())
                 .coverImageUrl(request.getCoverImageUrl())
@@ -113,9 +115,9 @@ public class NewsServiceImpl implements NewsService {
         if (request.getSummaryEn() != null) news.setSummaryEn(request.getSummaryEn());
         if (request.getSummaryFr() != null) news.setSummaryFr(request.getSummaryFr());
         if (request.getSummaryZh() != null) news.setSummaryZh(request.getSummaryZh());
-        if (request.getContentHtmlEn() != null) news.setContentHtmlEn(request.getContentHtmlEn());
-        if (request.getContentHtmlFr() != null) news.setContentHtmlFr(request.getContentHtmlFr());
-        if (request.getContentHtmlZh() != null) news.setContentHtmlZh(request.getContentHtmlZh());
+        if (request.getContentHtmlEn() != null) news.setContentHtmlEn(htmlSanitizer.sanitize(request.getContentHtmlEn()));
+        if (request.getContentHtmlFr() != null) news.setContentHtmlFr(htmlSanitizer.sanitize(request.getContentHtmlFr()));
+        if (request.getContentHtmlZh() != null) news.setContentHtmlZh(htmlSanitizer.sanitize(request.getContentHtmlZh()));
 
         if (request.getSlug() != null && !request.getSlug().isBlank() && !request.getSlug().equals(news.getSlug())) {
             news.setSlug(generateUniqueSlug(request.getSlug(), request.getTitleEn()));
