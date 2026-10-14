@@ -81,20 +81,21 @@ Values are conservative defaults, not measured optima: `DB_POOL_MAX=20`, `DB_POO
 Each replica adds `DB_POOL_MAX` connections; keep replicas x pool below the database connection limit. Run the
 Gatling scenarios (after giving them a bootstrap admin) to tune with data before raising anything.
 
-## Phase 3 (maintainability) - status
+## Phase 3 (maintainability) - status: complete for the frontend lint/type debt
 Done:
-- Admin portal guarded by a real layout (`admin/(portal)/layout.tsx`): data fetching starts only after authentication
-  (removed ~8 premature 401s per reload), 17 pages lost their wrapper boilerplate, preview page is now guarded.
-- Service layer typed (no `apiClient<any>`); dead `token` parameters removed (16 methods, 12 call sites);
-  uploads go through `apiClient` (they previously never refreshed an expired 15-minute token).
-- Bugs found and fixed on the way: CMS navigation links rendered without labels (wrong field names), dashboard
-  shortcut to a non-existent route, hook called after an early return (`NewsContent`), `notFound()` swallowed by try/catch.
-- Dead code removed: `components/cms` renderer (also a raw-HTML sink), 20 unreferenced frontend files, 3 unused
-  dependencies, 4 empty backend placeholder modules. README rewritten.
-- Frontend test runner added (Vitest + jsdom): 18 tests on session handling, CSRF header, CSP, storage hygiene.
-- Lint: 157 -> 98 problems (errors 90 -> 50).
+- Admin portal guarded by a real layout (`admin/(portal)/layout.tsx`): data fetching starts only after authentication.
+- Service layer typed; dead `token` parameters removed; uploads go through `apiClient` (they never refreshed a
+  15-minute token).
+- Admin lists use TanStack Query (`hooks/queries/useRemoteList`); forms initialise from props / remount by key
+  instead of copying props into state in effects.
+- No explicit `any` left; frontend lint: 157 problems (90 errors) -> 40 warnings, 0 errors.
+- Bugs found and fixed on the way: CMS navigation links had no label; dashboard shortcut to a missing route;
+  a hook called after an early return in `NewsContent`; `notFound()` swallowed by try/catch; admin-uploaded
+  hero/performance images never shown on product pages; wasted categories request on the products page.
+- Dead code removed: `components/cms` renderer, 20 unreferenced frontend files, 3 unused dependencies, 4 empty
+  backend placeholder modules. README rewritten.
+- Frontend tests: Vitest + jsdom, 18 tests (session handling, CSRF header, CSP, storage hygiene).
 Remaining:
-- 15 `react-hooks/set-state-in-effect` errors: admin pages fetch in `useEffect` + `setState`. Proper fix is to move
-  them to TanStack Query (already installed and provided) page by page; not done to avoid a blind rewrite of 12 pages.
-- ~36 `any` in components (section configs, editors, product detail data).
-- 42 unused exports (low value), duplicated section-type enums on the backend, component/page tests and E2E.
+- 40 lint warnings (unused variables, 5 exhaustive-deps, 2 `<img>`), 42 unused exports.
+- Duplicated section-type enums on the backend; the backend has not had a maintainability pass beyond security work.
+- Component tests and E2E (Phase 4).
