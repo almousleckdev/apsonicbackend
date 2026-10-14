@@ -1,6 +1,7 @@
 package com.apsonic.backend.security.jwt;
 
 import com.apsonic.backend.security.service.CustomUserDetailsService;
+import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -36,37 +37,40 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             String jwt = getJwtFromRequest(request);
 
-            if (StringUtils.hasText(jwt) && tokenProvider.validateToken(jwt)) {
-                if (tokenBlacklistService.isTokenBlacklisted(jwt)) {
-                    log.warn("Attempt to use blacklisted token.");
-                    filterChain.doFilter(request, response);
-                    return;
-                }
-                
-                Long userId = tokenProvider.getUserIdFromToken(jwt);
-                UserDetails userDetails;
-                if (userId != null) {
-                    userDetails = customUserDetailsService.loadUserById(userId);
+            if (StringUtils.hasText(jwt)) {
+                Claims claims = tokenProvider.parseClaims(jwt);
+
+                if (tokenBlacklistService.isTokenBlacklisted(claims.getId())) {
+                    log.warn("Attempt to use a revoked token");
                 } else {
-                    String username = tokenProvider.getUsernameFromToken(jwt);
-                    userDetails = customUserDetailsService.loadUserByUsername(username);
+                    Number userId = claims.get("id", Number.class);
+                    UserDetails userDetails = userId != null
+                            ? customUserDetailsService.loadUserById(userId.longValue())
+                            : customUserDetailsService.loadUserByUsername(claims.getSubject());
+
+                    // A valid signature is not enough: deactivated or locked accounts lose access immediately.
+                    if (isUsable(userDetails)) {
+                        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                                userDetails, null, userDetails.getAuthorities());
+                        authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                        SecurityContextHolder.getContext().setAuthentication(authentication);
+                    } else {
+                        log.warn("Rejected token for disabled, locked or expired account '{}'", userDetails.getUsername());
+                    }
                 }
-
-                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                        userDetails, null, userDetails.getAuthorities()
-                );
-                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-
-                SecurityContextHolder.getContext().setAuthentication(authentication);
             }
         } catch (Exception ex) {
-            log.error("Could not set user authentication in security context: {}", ex.getMessage());
+            log.debug("Could not set user authentication in security context: {}", ex.getClass().getSimpleName());
         }
 
         filterChain.doFilter(request, response);
     }
 
-    // Helper method
+    private static boolean isUsable(UserDetails user) {
+        return user.isEnabled() && user.isAccountNonLocked()
+                && user.isAccountNonExpired() && user.isCredentialsNonExpired();
+    }
+
     private String getJwtFromRequest(HttpServletRequest request) {
         String bearerToken = request.getHeader("Authorization");
         if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {

@@ -20,6 +20,7 @@ import org.springframework.stereotype.Component;
 import javax.crypto.SecretKey;
 import java.util.Date;
 import java.util.List;
+import java.util.UUID;
 
 @Slf4j
 @Component
@@ -47,6 +48,9 @@ public class JwtTokenProvider {
                 .toList();
 
         return Jwts.builder()
+                .id(UUID.randomUUID().toString())
+                .issuer(jwtProperties.getIssuer())
+                .audience().add(jwtProperties.getAudience()).and()
                 .subject(userPrincipal.getUsername())
                 .claim("id", userPrincipal.getId())
                 .claim("email", userPrincipal.getEmail())
@@ -57,47 +61,41 @@ public class JwtTokenProvider {
                 .compact();
     }
 
-    public String getUsernameFromToken(String token) {
+    /** Verifies signature, expiry, issuer and audience, and requires a token id (jti). */
+    public Claims parseClaims(String token) {
         Claims claims = Jwts.parser()
                 .verifyWith(getSigningKey())
+                .requireIssuer(jwtProperties.getIssuer())
+                .requireAudience(jwtProperties.getAudience())
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
+        if (claims.getId() == null || claims.getId().isBlank()) {
+            throw new MalformedJwtException("Token has no jti");
+        }
+        return claims;
+    }
 
-        return claims.getSubject();
+    public String getUsernameFromToken(String token) {
+        return parseClaims(token).getSubject();
     }
 
     public Date getExpirationFromToken(String token) {
-        Claims claims = Jwts.parser()
-                .verifyWith(getSigningKey())
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
+        return parseClaims(token).getExpiration();
+    }
 
-        return claims.getExpiration();
+    public String getTokenId(String token) {
+        return parseClaims(token).getId();
     }
 
     public Long getUserIdFromToken(String token) {
-        try {
-            Claims claims = Jwts.parser()
-                    .verifyWith(getSigningKey())
-                    .build()
-                    .parseSignedClaims(token)
-                    .getPayload();
-
-            Number id = claims.get("id", Number.class);
-            return id != null ? id.longValue() : null;
-        } catch (Exception ex) {
-            return null;
-        }
+        Number id = parseClaims(token).get("id", Number.class);
+        return id != null ? id.longValue() : null;
     }
 
     public boolean validateToken(String token) {
         try {
-            Jwts.parser()
-                    .verifyWith(getSigningKey())
-                    .build()
-                    .parseSignedClaims(token);
+            parseClaims(token);
             return true;
         } catch (SignatureException ex) {
             log.error("Invalid JWT signature: {}", ex.getMessage());
@@ -106,11 +104,14 @@ public class JwtTokenProvider {
             log.error("Invalid JWT token: {}", ex.getMessage());
             throw new TokenException("Invalid JWT token");
         } catch (ExpiredJwtException ex) {
-            log.error("Expired JWT token: {}", ex.getMessage());
+            log.debug("Expired JWT token");
             throw new TokenException("Expired JWT token");
         } catch (UnsupportedJwtException ex) {
             log.error("Unsupported JWT token: {}", ex.getMessage());
             throw new TokenException("Unsupported JWT token");
+        } catch (io.jsonwebtoken.JwtException ex) {
+            log.warn("Rejected JWT: {}", ex.getClass().getSimpleName());
+            throw new TokenException("Invalid JWT token");
         } catch (IllegalArgumentException ex) {
             log.error("JWT claims string is empty: {}", ex.getMessage());
             throw new TokenException("JWT claims string is empty");

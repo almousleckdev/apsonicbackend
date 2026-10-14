@@ -104,12 +104,10 @@ public class AuthController {
         if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
             String jwt = bearerToken.substring(7);
             try {
-                if (tokenProvider.validateToken(jwt)) {
-                    java.util.Date expiration = tokenProvider.getExpirationFromToken(jwt);
-                    tokenBlacklistService.blacklistToken(jwt, expiration.getTime());
-                }
-            } catch (Exception e) {
-                // Ignore validation exception for expired token on logout
+                io.jsonwebtoken.Claims claims = tokenProvider.parseClaims(jwt);
+                tokenBlacklistService.blacklistToken(claims.getId(), claims.getExpiration().getTime());
+            } catch (io.jsonwebtoken.JwtException | IllegalArgumentException expiredOrInvalid) {
+                // Nothing to revoke: an expired or invalid access token cannot be used anyway.
             }
         }
 

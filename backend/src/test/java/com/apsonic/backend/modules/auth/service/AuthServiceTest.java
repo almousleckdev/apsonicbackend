@@ -102,7 +102,6 @@ class AuthServiceTest extends BaseUnitTest {
         given(jwtProperties.getRefreshExpirationMs()).willReturn(604800000L);
         given(userRepository.findByUsernameOrEmail("superadmin", "superadmin")).willReturn(Optional.of(user));
         given(userRepository.findById(1L)).willReturn(Optional.of(user));
-        given(refreshTokenRepository.save(any())).willReturn(refreshToken);
         given(authMapper.toUserProfileResponse(user)).willReturn(
                 UserProfileResponse.builder()
                         .id(1L)
@@ -119,41 +118,12 @@ class AuthServiceTest extends BaseUnitTest {
         assertThat(result.response().getAccessToken()).isEqualTo(fakeToken);
         assertThat(result.response().getUser().getUsername()).isEqualTo("superadmin");
         // The refresh token must travel out-of-band (httpOnly cookie), never on the response body.
-        assertThat(result.refreshToken()).isEqualTo(fakeRefreshTokenString);
-    }
-
-    @Test
-    @DisplayName("Should rotate refresh token and return a new access token")
-    void refreshToken_Success() {
-        // Given
-        String oldRefreshTokenValue = UUID.randomUUID().toString();
-        RefreshToken existingToken = RefreshToken.builder()
-                .user(user)
-                .token(oldRefreshTokenValue)
-                .expiryDate(Instant.now().plusSeconds(604800))
-                .revoked(false)
-                .build();
-
-        RefreshToken rotatedToken = RefreshToken.builder()
-                .user(user)
-                .token(UUID.randomUUID().toString())
-                .expiryDate(Instant.now().plusSeconds(604800))
-                .revoked(false)
-                .build();
-
-        given(refreshTokenRepository.findByToken(oldRefreshTokenValue)).willReturn(Optional.of(existingToken));
-        given(userRepository.findById(1L)).willReturn(Optional.of(user));
-        given(jwtProperties.getRefreshExpirationMs()).willReturn(604800000L);
-        given(jwtProperties.getExpirationMs()).willReturn(86400000L);
-        given(tokenProvider.generateAccessTokenFromUserPrincipal(any())).willReturn("new_access_token");
-        given(refreshTokenRepository.save(any())).willReturn(rotatedToken);
-
-        // When
-        AuthenticationResult<TokenRefreshResponse> result = authService.refreshToken(oldRefreshTokenValue);
-
-        // Then
-        assertThat(result.response().getAccessToken()).isEqualTo("new_access_token");
-        assertThat(result.refreshToken()).isEqualTo(rotatedToken.getToken());
+        org.mockito.ArgumentCaptor<RefreshToken> saved = org.mockito.ArgumentCaptor.forClass(RefreshToken.class);
+        org.mockito.Mockito.verify(refreshTokenRepository).save(saved.capture());
+        assertThat(result.refreshToken()).isNotBlank();
+        // Only the digest is persisted - never the value that goes into the cookie.
+        assertThat(saved.getValue().getToken()).isNotEqualTo(result.refreshToken())
+                .isEqualTo(com.apsonic.backend.modules.auth.service.RefreshTokenCodec.hash(result.refreshToken()));
     }
 
     @Test

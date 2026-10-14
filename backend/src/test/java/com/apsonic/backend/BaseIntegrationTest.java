@@ -52,6 +52,7 @@ public abstract class BaseIntegrationTest {
             new SecureRandom().nextBytes(key);
             return Base64.getEncoder().encodeToString(key);
         });
+        registry.add("app.security.jwt.expiration-ms", () -> "900000");
         registry.add("app.bootstrap-admin.username", () -> BOOTSTRAP_ADMIN_USERNAME);
         registry.add("app.bootstrap-admin.email", () -> "it-owner@apsonic.test");
         registry.add("app.bootstrap-admin.password", () -> BOOTSTRAP_ADMIN_PASSWORD);

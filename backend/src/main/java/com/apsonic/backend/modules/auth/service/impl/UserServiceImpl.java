@@ -32,6 +32,7 @@ public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
+    private final com.apsonic.backend.modules.auth.repository.RefreshTokenRepository refreshTokenRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -101,6 +102,12 @@ public class UserServiceImpl implements UserService {
         }
         if (request.getEnabled() != null) {
             user.setEnabled(request.getEnabled());
+            if (!request.getEnabled()) {
+                refreshTokenRepository.deleteByUser(user);
+            }
+        }
+        if (request.getPassword() != null && !request.getPassword().isBlank()) {
+            refreshTokenRepository.deleteByUser(user);
         }
 
         if (request.getRoles() != null && !request.getRoles().isEmpty()) {
@@ -120,6 +127,9 @@ public class UserServiceImpl implements UserService {
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", id));
         boolean targetStatus = enabled != null ? enabled : !user.isEnabled();
         user.setEnabled(targetStatus);
+        if (!targetStatus) {
+            refreshTokenRepository.deleteByUser(user);
+        }
         User updated = userRepository.save(user);
         log.info("Toggled user status for ID {} to {}", id, targetStatus);
         return toUserManagementResponse(updated);
@@ -130,6 +140,7 @@ public class UserServiceImpl implements UserService {
     public void deleteUser(Long id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", id));
+        refreshTokenRepository.deleteByUser(user);
         user.setDeleted(true);
         user.setDeletedAt(java.time.Instant.now());
         user.setDeletedBy(com.apsonic.backend.shared.util.SecurityUtils.getCurrentUsername().orElse("system"));

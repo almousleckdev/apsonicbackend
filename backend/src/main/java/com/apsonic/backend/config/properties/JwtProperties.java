@@ -16,19 +16,30 @@ import java.util.Set;
 public class JwtProperties {
 
     static final int MIN_KEY_BYTES = 32;
+    static final long MAX_ACCESS_TOKEN_MS = 3_600_000L;
 
     /** Signing keys that were committed to this repository's history. Compromised: never accepted. */
     private static final Set<String> COMPROMISED_SECRETS =
             Set.of("404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970");
 
     private String secret;
-    private long expirationMs = 86400000L; // 24 hours
+    private long expirationMs = 900000L; // 15 minutes
+    private String issuer = "apsonic-backend";
+    private String audience = "apsonic-web";
     private long refreshExpirationMs = 604800000L; // 7 days
 
     /** Fails application start-up when the HMAC key is missing, malformed, too short or known to be compromised. */
     @PostConstruct
-    void validateSecret() {
+    void validate() {
         validateSecret(secret);
+        validateLifetime(expirationMs);
+    }
+
+    static void validateLifetime(long accessTokenMs) {
+        if (accessTokenMs <= 0 || accessTokenMs > MAX_ACCESS_TOKEN_MS) {
+            throw new IllegalStateException("JWT_ACCESS_EXPIRATION_MS must be between 1 and " + MAX_ACCESS_TOKEN_MS
+                    + " ms (1 hour). Access tokens must stay short-lived; sessions are renewed via the refresh cookie.");
+        }
     }
 
     static void validateSecret(String candidate) {

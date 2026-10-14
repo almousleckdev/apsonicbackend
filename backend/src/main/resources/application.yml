@@ -109,7 +109,9 @@ app:
   security:
     jwt:
       secret: ${JWT_SECRET}
-      expiration-ms: ${JWT_ACCESS_EXPIRATION_MS:86400000}
+      expiration-ms: ${JWT_ACCESS_EXPIRATION_MS:900000}
+      issuer: ${JWT_ISSUER:apsonic-backend}
+      audience: ${JWT_AUDIENCE:apsonic-web}
       refresh-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000}
     cookie:
       name: refresh_token

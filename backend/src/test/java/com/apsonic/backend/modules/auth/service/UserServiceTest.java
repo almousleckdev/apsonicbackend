@@ -38,6 +38,9 @@ class UserServiceTest {
     @Mock
     private PasswordEncoder passwordEncoder;
 
+    @Mock
+    private com.apsonic.backend.modules.auth.repository.RefreshTokenRepository refreshTokenRepository;
+
     @InjectMocks
     private UserServiceImpl userService;
 
