@@ -1,0 +1,124 @@
+# Production stack for a single Linux host (e.g. one Alibaba Cloud ECS).
+#   caddy -> frontend (Next.js) -> backend (Spring Boot) -> postgres / redis
+# Only caddy publishes ports. Postgres, Redis and the backend are on an internal network with no route to the
+# internet and no published ports. All secrets come from .env.production (never committed).
+name: apsonic
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+      - "${HTTPS_PORT:-443}:443/udp"
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?set SITE_ADDRESS (your domain, or :80 for plain HTTP testing)}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [edge]
+    depends_on:
+      frontend:
+        condition: service_healthy
+    mem_limit: 128m
+    security_opt: ["no-new-privileges:true"]
+
+  frontend:
+    image: ${FRONTEND_IMAGE:?set FRONTEND_IMAGE}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+    volumes:
+      - next_cache:/app/.next/cache   # image-optimiser cache: avoids re-encoding images after every restart
+    networks: [edge, internal]        # edge: serves caddy and fetches remote images; internal: reaches the backend
+    depends_on:
+      backend:
+        condition: service_healthy
+    read_only: true
+    tmpfs: [/tmp]
+    mem_limit: 1g
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+  backend:
+    image: ${BACKEND_IMAGE:?set BACKEND_IMAGE}
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: ${DB_NAME:-apsonic_cms}
+      DB_USER: ${DB_USER:-apsonic_user}
+      DB_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET (openssl rand -base64 48)}
+      CORS_ALLOWED_ORIGINS: ${PUBLIC_ORIGIN:?set PUBLIC_ORIGIN, e.g. https://www.example.com}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      BOOTSTRAP_ADMIN_USERNAME: ${BOOTSTRAP_ADMIN_USERNAME:-}
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-}
+    volumes:
+      - uploads:/app/uploads
+    networks: [internal]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    mem_limit: 1536m
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-apsonic_cms}
+      POSTGRES_USER: ${DB_USER:-apsonic_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks: [internal]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    mem_limit: 1g
+    security_opt: ["no-new-privileges:true"]
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # Holds revoked-token markers and rate-limit counters. noeviction: never silently drop a revocation under memory pressure.
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?set REDIS_PASSWORD}", "--appendonly", "yes", "--maxmemory", "200mb", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redisdata:/data
+    networks: [internal]
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD}\" --no-auth-warning ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    mem_limit: 300m
+    security_opt: ["no-new-privileges:true"]
+
+networks:
+  edge: {}
+  internal:
+    internal: true   # no outbound internet, not reachable from the host
+
+volumes:
+  pgdata:
+  redisdata:
+  uploads:
+  next_cache:
+  caddy_data:
+  caddy_config:

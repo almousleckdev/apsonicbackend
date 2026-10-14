@@ -99,3 +99,25 @@ Remaining:
 - 40 lint warnings (unused variables, 5 exhaustive-deps, 2 `<img>`), 42 unused exports.
 - Duplicated section-type enums on the backend; the backend has not had a maintainability pass beyond security work.
 - Component tests and E2E (Phase 4).
+
+## Phase 5 (production readiness) - status
+Prepared and tested locally (NOT yet run on any server, no cloud resource was touched):
+- `backend/Dockerfile`, `apsonicui/Dockerfile`: multi-stage, non-root (uid 10001), health checks, layered jar, Node 22 LTS
+  (Node 20 is end-of-life), npm removed from the runtime image. Images: backend 427 MB, frontend ~1 GB (734 MB product media).
+- `deploy/`: production compose (only Caddy publishes ports; Postgres/Redis/backend on an internal network without
+  internet; read-only frontend; memory limits; `noeviction` Redis so revocations are never silently evicted), Caddyfile
+  (automatic HTTPS), bootstrap/SSH-hardening scripts, deploy with automatic rollback, backup and restore scripts, RUNBOOK.md.
+- Verified against the running stack: login/refresh/upload through Caddy -> Next -> backend; rate limiting keys on the real
+  client address; backend cannot reach the internet; both app containers run as non-root; data and uploads survive a full
+  restart; backup + restore into a scratch DB reproduces the live row counts; a deliberately broken release rolls back
+  automatically and the site keeps serving. ShellCheck and actionlint clean.
+- CI workflows (root repo `.github/workflows/backend.yml`, frontend repo `.github/workflows/ci.yml`): build, tests, audit,
+  image build + Trivy scan, secret scan. Linted with actionlint but not executed (no GitHub remote for the root repo yet).
+- Scans run by hand: gitleaks on the committed files of both repos: no findings. Trivy on the images: see below.
+
+Finding: the backend was on Spring Boot 3.4.2 (Jan 2025); its image had 55 fixable HIGH/CRITICAL library vulnerabilities
+(Jackson, Tomcat, Spring...). Upgraded to 3.5.16 (125/125 tests pass, no code changes) and removed the stale
+Testcontainers pin (1.20.4 breaks on newer Docker Engines).
+
+Not done / needs a decision from the owner: domain and region (ICP filing if mainland China), image registry choice,
+off-site backup destination, monitoring/alarms, real secret rotation, Aliyun OSS for uploads.

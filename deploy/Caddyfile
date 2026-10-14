@@ -1,0 +1,26 @@
+{
+	# Used for Let's Encrypt registration and expiry notices.
+	email {$ACME_EMAIL}
+}
+
+# SITE_ADDRESS is the public domain (HTTPS is obtained and renewed automatically, HTTP redirects to HTTPS),
+# or ":80" to serve plain HTTP for local testing.
+{$SITE_ADDRESS} {
+	encode zstd gzip
+
+	# Largest accepted upload (backend limit is 100 MB per request).
+	request_body {
+		max_size 110MB
+	}
+
+	header -Server
+
+	# Everything goes to the Next.js server, which serves pages and proxies /api and /uploads to the backend.
+	# Caddy sets X-Forwarded-For to the real client address; the backend uses it for rate limiting.
+	reverse_proxy frontend:3000
+
+	log {
+		output stdout
+		format json
+	}
+}

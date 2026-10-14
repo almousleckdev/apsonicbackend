@@ -1,0 +1,72 @@
+name: Backend and deployment files
+
+on:
+  push:
+    branches: [main]
+    paths: ["backend/**", "deploy/**", ".github/workflows/backend.yml"]
+  pull_request:
+    paths: ["backend/**", "deploy/**", ".github/workflows/backend.yml"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Build and test (real PostgreSQL + Redis via Testcontainers)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+      # `clean` always: a stale target/ once produced misleading class-format errors.
+      - name: Maven verify
+        run: ./mvnw -B -f backend/pom.xml clean verify
+
+  image:
+    name: Build and scan the container image
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t apsonic-backend:ci backend
+      - name: Scan image (fail on fixable HIGH/CRITICAL vulnerabilities)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: apsonic-backend:ci
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
+  deploy-scripts:
+    name: Lint deployment scripts and compose file
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: ShellCheck
+        run: docker run --rm -v "$PWD/deploy/scripts:/mnt:ro" -w /mnt koalaman/shellcheck:stable -x -S warning bootstrap-server.sh harden-ssh.sh deploy.sh rollback.sh backup.sh restore-db.sh _common.sh
+      - name: Validate compose file
+        run: |
+          cp deploy/.env.production.example /tmp/ci.env
+          sed -i 's/^JWT_SECRET=.*/JWT_SECRET=x/; s/^DB_PASSWORD=.*/DB_PASSWORD=x/; s/^REDIS_PASSWORD=.*/REDIS_PASSWORD=x/' /tmp/ci.env
+          docker compose --env-file /tmp/ci.env -f deploy/docker-compose.prod.yml config -q
+
+  secrets:
+    name: Scan for committed secrets
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      # Scans the checked-out files. Early history contains development defaults that are treated as compromised
+      # and rotated (see docs/remediation); a full-history scan would flag those forever.
+      - name: gitleaks (working tree)
+        run: docker run --rm -v "$PWD:/repo:ro" zricethezav/gitleaks:latest dir /repo --no-banner --redact

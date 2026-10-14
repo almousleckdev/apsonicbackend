@@ -6,6 +6,7 @@
 .env
 .env.*
 !.env.example
+!.env.production.example
 *.pem
 
 # User-uploaded media (to move to Aliyun OSS); never commit
