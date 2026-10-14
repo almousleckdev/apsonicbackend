@@ -67,6 +67,8 @@ class AuthControllerTest {
     private RefreshCookieFactory refreshCookieFactory;
     @MockitoBean
     private TokenBlacklistService tokenBlacklistService;
+    @MockitoBean
+    private com.apsonic.backend.shared.ratelimit.RateLimiter rateLimiter;
     private static final String COOKIE_NAME = "refresh_token";
 
     @Test

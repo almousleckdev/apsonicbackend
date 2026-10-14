@@ -16,6 +16,8 @@ import org.testcontainers.junit.jupiter.Container;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureMockMvc
 @ActiveProfiles("local")
+// Most tests log in many times from one address; RateLimitIntegrationTest overrides this to true.
+@org.springframework.test.context.TestPropertySource(properties = "app.rate-limit.enabled=false")
 public abstract class BaseIntegrationTest {
 
     @Container

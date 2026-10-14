@@ -58,6 +58,10 @@ spring:
 
 server:
   port: ${SERVER_PORT:8080}
+  # Behind the Next.js proxy / Alibaba Cloud SLB the real client address arrives in X-Forwarded-For.
+  # 'native' makes Tomcat honour it ONLY when the direct peer is a trusted (private-range) proxy, so
+  # outside callers cannot spoof it. The backend must never be exposed to the internet directly.
+  forward-headers-strategy: native
   compression:
     enabled: true
     mime-types: text/html,text/xml,text/plain,text/css,text/javascript,application/javascript,application/json
@@ -105,6 +109,8 @@ springdoc:
 
 # Custom Application Properties
 app:
+  rate-limit:
+    enabled: true
   bootstrap-admin:
     username: ${BOOTSTRAP_ADMIN_USERNAME:}
     email: ${BOOTSTRAP_ADMIN_EMAIL:}

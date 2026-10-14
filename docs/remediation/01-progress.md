@@ -11,9 +11,13 @@
 | H4 | 24h tokens, no jti/iss/aud, status not enforced, raw refresh tokens, no reuse detection | Fixed + e2e tests | 6c4fe96 |
 | -  | Deactivated users kept access via refresh (new finding) | Fixed: filter + refresh check status; disabling/deleting/password reset revokes refresh tokens | 6c4fe96 |
 | CSRF | Cookie endpoints relied on SameSite alone | Added header + Origin guard, explicit CORS headers | see git log |
+| H5 | No rate limiting (login, refresh, contact, view counter) | Fixed: Redis limiter + filter; verified through the Next proxy | see git log |
+| H6 | Actuator/Swagger public, debug-by-default profile, error detail | Fixed: prod is the default; docs/actuator locked down | see git log |
+| M3 | No security headers / CSP | Fixed on API and site; nonce CSP verified in a browser | see git log |
+| -  | All client errors returned 500 + stack trace | Fixed (404/405/400/415/413) | see git log |
 | -  | Frontend production build broken | Fixed (5 type errors) | apsonicui af0c89b |
 
-Open: H5 (rate limiting), H6 (actuator/swagger/error detail by profile), M3 (security headers), H3 (HTML sanitising).
+Open: H3 (HTML sanitising).
 
 ## Accepted risks
 - Dev-only npm advisories (`braces`/`micromatch`/`fast-glob` via `eslint-config-next`): not in the production bundle;
@@ -45,3 +49,17 @@ resources have been created or modified):
 - Admin pages fire data requests before the session is restored (about 8 initial 401s, recovered by the shared
   refresh). Gate fetching on auth readiness in Phase 3.
 - Multi-tab: a refresh race inside 10s is tolerated; outside it a replay revokes all sessions by design.
+
+## Deployment requirements introduced by H5/H6/M3
+- `SPRING_PROFILES_ACTIVE` now defaults to `prod`. Local development must set `local` (already in `.env.example`).
+- Real client IPs for rate limiting come from `X-Forwarded-For`, honoured only from private-range peers
+  (`server.forward-headers-strategy=native`). The backend must sit behind the Next.js proxy / SLB on a private
+  network and must never be reachable from the internet directly, or the limits can be bypassed.
+  The SLB must be configured to set/append `X-Forwarded-For`.
+- Rate limits (per client IP): login 10/min, refresh 60/min, contact form 5/10 min, news view counter 20/h.
+  Fail-open if Redis is down (logged at ERROR); per-account lockout still protects credentials.
+- The public `POST /api/v1/news/{id}/views` endpoint is not called by the website. Consider removing it.
+- The site CSP allows only the third parties currently used (Mapbox, YouTube/Google Maps embeds, Nominatim,
+  GitHub raw GeoJSON, configured image hosts). A new embed or CDN needs `lib/security/csp.ts` updated.
+- `style-src` still allows `'unsafe-inline'` (framer-motion/Tiptap/Mapbox need inline styles).
+- HSTS is sent by both tiers; confirm the domain is HTTPS-only before the first production deploy.
