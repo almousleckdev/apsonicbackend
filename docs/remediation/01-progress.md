@@ -16,9 +16,11 @@
 | M3 | No security headers / CSP | Fixed on API and site; nonce CSP verified in a browser | see git log |
 | -  | All client errors returned 500 + stack trace | Fixed (404/405/400/415/413) | see git log |
 | H3 | CMS HTML rendered unsanitized (stored XSS; the NewsContent "sanitizer" only stripped CSS classes) | Fixed: OWASP allow-list sanitizer in the backend on save AND on read (news HTML, CMS section config, published snapshots); 41 payload tests + 3 end-to-end tests | see git log |
+| M4 | Flyway validation off, auto-baseline on | Fixed for prod (strict default); local profile lenient until the dev DB is recreated; drift detection tested | see git log |
+| M5 | Pool 100 / 400 threads / 100MB form posts | Right-sized (pool 20, threads 200, forms 2MB; env-tunable); no load measurements yet | see git log |
 | -  | Frontend production build broken | Fixed (5 type errors) | apsonicui af0c89b |
 
-Open: M4 (Flyway validation), M5 (pool sizing).
+Open: none from the original High/Medium list.
 
 ## Accepted risks
 - Dev-only npm advisories (`braces`/`micromatch`/`fast-glob` via `eslint-config-next`): not in the production bundle;
@@ -73,3 +75,8 @@ resources have been created or modified):
 - Only strings that contain markup are processed; plain text (titles, URLs, labels) is never entity-encoded.
 - A new editor feature that needs more tags/attributes must extend the policy and its test corpus.
 - Defence in depth: the site CSP blocks inline event handlers and eval even if a payload slipped through.
+
+## Pool sizing (M5)
+Values are conservative defaults, not measured optima: `DB_POOL_MAX=20`, `DB_POOL_MIN_IDLE=5`, 200 request threads.
+Each replica adds `DB_POOL_MAX` connections; keep replicas x pool below the database connection limit. Run the
+Gatling scenarios (after giving them a bootstrap admin) to tune with data before raising anything.

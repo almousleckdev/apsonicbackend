@@ -21,8 +21,11 @@ spring:
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
     hikari:
-      maximum-pool-size: 100
-      minimum-idle: 20
+      # Sized for a single small instance; each replica adds this many connections to the database limit
+      # (managed PostgreSQL plans cap total connections). Raise only with measurements.
+      maximum-pool-size: ${DB_POOL_MAX:20}
+      minimum-idle: ${DB_POOL_MIN_IDLE:5}
+      leak-detection-threshold: 60000
       idle-timeout: 300000
       connection-timeout: 20000
       max-lifetime: 1200000
@@ -71,10 +74,12 @@ server:
     min-response-size: 1024
   tomcat:
     threads:
-      max: 400
-      min-spare: 50
+      max: ${SERVER_THREADS_MAX:200}
+      min-spare: 20
+    # Uploads are multipart and limited by spring.servlet.multipart. Keep swallow >= max request size so an oversized
+    # upload is answered with a clean 413 instead of a reset connection; plain form posts are small.
     max-swallow-size: 100MB
-    max-http-form-post-size: 100MB
+    max-http-form-post-size: 2MB
   error:
     include-message: never
     include-binding-errors: never
