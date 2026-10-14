@@ -116,8 +116,17 @@ Prepared and tested locally (NOT yet run on any server, no cloud resource was to
 - Scans run by hand: gitleaks on the committed files of both repos: no findings. Trivy on the images: see below.
 
 Finding: the backend was on Spring Boot 3.4.2 (Jan 2025); its image had 55 fixable HIGH/CRITICAL library vulnerabilities
-(Jackson, Tomcat, Spring...). Upgraded to 3.5.16 (125/125 tests pass, no code changes) and removed the stale
-Testcontainers pin (1.20.4 breaks on newer Docker Engines).
+(Jackson, Tomcat, Netty, Spring...). Result of the fix, measured with Trivy on the built image:
+- Spring Boot 3.4.2 -> 3.5.16: 55 -> 16 findings (125/125 tests pass, no code changes). Removed the stale Testcontainers pin
+  (1.20.4 breaks on newer Docker Engines).
+- Patch overrides of Boot-managed versions in `backend/pom.xml` (Jackson 2.21.7, Tomcat 10.1.61, Netty 4.1.137, PostgreSQL
+  driver 42.7.12) and removal of the unused Go `pebble` binary from the base image: 16 -> 2. Tests still 125/125; the patched
+  stack passes the full-stack smoke test.
+- The remaining 2 (CVE-2026-47884 XsltView RCE, CVE-2026-47890 SSE with view fragments, both in spring-webmvc) have a fix only
+  in Spring Framework 7 (Spring Boot 4). Verified NOT reachable here: no XsltView/view resolver/template engine/WebFlux/SSE
+  anywhere (0 @Controller, 17 @RestController, empty dependency tree match). Recorded as time-boxed exceptions in
+  `backend/.trivyignore.yaml` (expire 2027-01-31). This is an accepted risk, not a fix: plan the Spring Boot 4 migration.
+- Frontend image: 10 findings (all in the npm CLI bundled in the Node base image) -> 0 by removing npm from the runtime image.
 
 Not done / needs a decision from the owner: domain and region (ICP filing if mainland China), image registry choice,
 off-site backup destination, monitoring/alarms, real secret rotation, Aliyun OSS for uploads.

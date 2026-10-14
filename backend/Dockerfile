@@ -21,7 +21,9 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/* \
  && useradd --system --uid 10001 --home-dir /app --shell /usr/sbin/nologin app \
  && mkdir -p /app/uploads \
- && chown -R app:app /app
+ && chown -R app:app /app \
+ # The base image ships a Go service manager (pebble) that this container never runs; it carries its own CVEs.
+ && rm -f /usr/bin/pebble
 WORKDIR /app
 
 COPY --from=build --chown=app:app /build/extracted/dependencies/ ./

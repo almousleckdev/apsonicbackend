@@ -1,0 +1,13 @@
+# Time-boxed, reviewed exceptions for the image scan. Each entry expires so it has to be looked at again.
+vulnerabilities:
+  - id: CVE-2026-47884
+    statement: >
+      Spring Framework XsltView RCE/SSRF. Not reachable: the application is a JSON API with only @RestController classes
+      (0 @Controller), no view resolvers, no XSLT/template engine in the dependency tree. No fix exists on the 6.2 line;
+      resolved by the planned move to Spring Boot 4 (Spring Framework 7.0.9+).
+    expired_at: 2027-01-31
+  - id: CVE-2026-47890
+    statement: >
+      Spring MVC SSE stream corruption with view fragments. Not reachable: no SseEmitter / text/event-stream and no view
+      rendering anywhere in the code. No fix on the 6.2 line; resolved by the move to Spring Boot 4.
+    expired_at: 2027-01-31

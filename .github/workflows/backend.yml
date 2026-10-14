@@ -44,6 +44,8 @@ jobs:
           image-ref: apsonic-backend:ci
           severity: HIGH,CRITICAL
           ignore-unfixed: true
+          # Reviewed, time-boxed exceptions with the reasoning written down; they expire and must be re-checked.
+          trivyignores: backend/.trivyignore.yaml
           exit-code: "1"
 
   deploy-scripts:
