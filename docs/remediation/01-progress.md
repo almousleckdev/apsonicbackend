@@ -80,3 +80,21 @@ resources have been created or modified):
 Values are conservative defaults, not measured optima: `DB_POOL_MAX=20`, `DB_POOL_MIN_IDLE=5`, 200 request threads.
 Each replica adds `DB_POOL_MAX` connections; keep replicas x pool below the database connection limit. Run the
 Gatling scenarios (after giving them a bootstrap admin) to tune with data before raising anything.
+
+## Phase 3 (maintainability) - status
+Done:
+- Admin portal guarded by a real layout (`admin/(portal)/layout.tsx`): data fetching starts only after authentication
+  (removed ~8 premature 401s per reload), 17 pages lost their wrapper boilerplate, preview page is now guarded.
+- Service layer typed (no `apiClient<any>`); dead `token` parameters removed (16 methods, 12 call sites);
+  uploads go through `apiClient` (they previously never refreshed an expired 15-minute token).
+- Bugs found and fixed on the way: CMS navigation links rendered without labels (wrong field names), dashboard
+  shortcut to a non-existent route, hook called after an early return (`NewsContent`), `notFound()` swallowed by try/catch.
+- Dead code removed: `components/cms` renderer (also a raw-HTML sink), 20 unreferenced frontend files, 3 unused
+  dependencies, 4 empty backend placeholder modules. README rewritten.
+- Frontend test runner added (Vitest + jsdom): 18 tests on session handling, CSRF header, CSP, storage hygiene.
+- Lint: 157 -> 98 problems (errors 90 -> 50).
+Remaining:
+- 15 `react-hooks/set-state-in-effect` errors: admin pages fetch in `useEffect` + `setState`. Proper fix is to move
+  them to TanStack Query (already installed and provided) page by page; not done to avoid a blind rewrite of 12 pages.
+- ~36 `any` in components (section configs, editors, product detail data).
+- 42 unused exports (low value), duplicated section-type enums on the backend, component/page tests and E2E.
