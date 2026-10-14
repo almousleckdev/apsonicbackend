@@ -10,6 +10,7 @@ import com.apsonic.backend.modules.auth.service.AuthService;
 import com.apsonic.backend.modules.auth.service.AuthenticationResult;
 import com.apsonic.backend.security.jwt.JwtAuthenticationFilter;
 import com.apsonic.backend.security.jwt.JwtTokenProvider;
+import com.apsonic.backend.security.jwt.TokenBlacklistService;
 import com.apsonic.backend.shared.cookie.RefreshCookieFactory;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.Cookie;
@@ -64,6 +65,8 @@ class AuthControllerTest {
     private CorsProperties corsProperties;
     @MockitoBean
     private RefreshCookieFactory refreshCookieFactory;
+    @MockitoBean
+    private TokenBlacklistService tokenBlacklistService;
     private static final String COOKIE_NAME = "refresh_token";
 
     @Test
