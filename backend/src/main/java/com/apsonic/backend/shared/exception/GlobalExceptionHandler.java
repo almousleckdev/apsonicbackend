@@ -142,6 +142,41 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(errorResponse, HttpStatus.UNAUTHORIZED);
     }
 
+    /** Framework-level client errors (404 unknown path, 405, 415, missing params, ...) keep their own status. */
+    @ExceptionHandler({jakarta.servlet.ServletException.class, org.springframework.web.ErrorResponseException.class})
+    public ResponseEntity<ErrorResponse> handleFrameworkClientError(Exception ex, HttpServletRequest request) {
+        HttpStatus status = HttpStatus.BAD_REQUEST;
+        if (ex instanceof org.springframework.web.ErrorResponse framework
+                && HttpStatus.resolve(framework.getStatusCode().value()) != null) {
+            status = HttpStatus.valueOf(framework.getStatusCode().value());
+        }
+        log.debug("Client error [{}] on [{}]: {}", status.value(), request.getRequestURI(), ex.getClass().getSimpleName());
+        return clientError(status, status.getReasonPhrase(), request);
+    }
+
+    @ExceptionHandler({org.springframework.http.converter.HttpMessageNotReadableException.class,
+            org.springframework.beans.TypeMismatchException.class})
+    public ResponseEntity<ErrorResponse> handleUnreadableRequest(Exception ex, HttpServletRequest request) {
+        log.debug("Unreadable request on [{}]: {}", request.getRequestURI(), ex.getClass().getSimpleName());
+        return clientError(HttpStatus.BAD_REQUEST, "Malformed or invalid request", request);
+    }
+
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorResponse> handleUploadTooLarge(Exception ex, HttpServletRequest request) {
+        return clientError(HttpStatus.PAYLOAD_TOO_LARGE, "Upload exceeds the maximum allowed size", request);
+    }
+
+    private ResponseEntity<ErrorResponse> clientError(HttpStatus status, String message, HttpServletRequest request) {
+        ErrorResponse body = ErrorResponse.builder()
+                .timestamp(Instant.now())
+                .status(status.value())
+                .error(status.getReasonPhrase())
+                .message(message)
+                .path(request.getRequestURI())
+                .build();
+        return new ResponseEntity<>(body, status);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleUnhandledException(Exception ex, HttpServletRequest request) {
         log.error("Unhandled internal server error on [{}]:", request.getRequestURI(), ex);
