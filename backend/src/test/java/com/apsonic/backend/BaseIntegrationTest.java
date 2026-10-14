@@ -29,6 +29,7 @@ public abstract class BaseIntegrationTest {
             .withCommand("redis-server", "--requirepass", REDIS_PASSWORD)
             .withExposedPorts(6379);
 
+    protected static final String ALLOWED_ORIGIN = "https://www.apsonic.test";
     protected static final String BOOTSTRAP_ADMIN_USERNAME = "it-owner";
     protected static final String BOOTSTRAP_ADMIN_PASSWORD = "It-Bootstrap!Pass#" + UUID.randomUUID();
 
@@ -53,6 +54,7 @@ public abstract class BaseIntegrationTest {
             return Base64.getEncoder().encodeToString(key);
         });
         registry.add("app.security.jwt.expiration-ms", () -> "900000");
+        registry.add("app.cors.allowed-origins", () -> ALLOWED_ORIGIN);
         registry.add("app.bootstrap-admin.username", () -> BOOTSTRAP_ADMIN_USERNAME);
         registry.add("app.bootstrap-admin.email", () -> "it-owner@apsonic.test");
         registry.add("app.bootstrap-admin.password", () -> BOOTSTRAP_ADMIN_PASSWORD);

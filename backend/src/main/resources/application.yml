@@ -121,6 +121,6 @@ app:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:8080}
     allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
-    allowed-headers: "*"
+    allowed-headers: Authorization,Content-Type,Accept,X-Requested-With
     allow-credentials: true
     max-age: 3600

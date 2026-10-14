@@ -29,6 +29,7 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final TraceIdFilter traceIdFilter;
+    private final com.apsonic.backend.security.CookieAuthRequestGuardFilter cookieAuthRequestGuardFilter;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
     private final CustomAccessDeniedHandler customAccessDeniedHandler;
     private final CorsConfigurationSource corsConfigurationSource;
@@ -64,6 +65,8 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
+                // Stateless bearer-token API. The only cookie-authenticated endpoints (refresh/logout) are
+                // protected by CookieAuthRequestGuardFilter instead of the session-oriented CSRF filter.
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -77,6 +80,7 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(traceIdFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(cookieAuthRequestGuardFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
