@@ -7,10 +7,13 @@
 | C3 | Committed secret defaults / no JWT key validation | Fixed (code). **Rotation of existing secrets is the operator's task, not done** | a112620 |
 | C4 | Next.js critical advisories | Fixed: `npm audit --omit=dev` = 0. 5 dev-only highs (eslint tooling) accepted | apsonicui ceb8c12 |
 | H1 | Stored XSS via SVG upload | Fixed: content sniffing, SVG removed, `/uploads` nosniff + sandbox CSP | see git log |
+| H2 | Access token in localStorage | Fixed: memory-only; session restored via httpOnly refresh cookie; verified in browser | apsonicui (latest) |
+| H4 | 24h tokens, no jti/iss/aud, status not enforced, raw refresh tokens, no reuse detection | Fixed + e2e tests | 6c4fe96 |
+| -  | Deactivated users kept access via refresh (new finding) | Fixed: filter + refresh check status; disabling/deleting/password reset revokes refresh tokens | 6c4fe96 |
+| CSRF | Cookie endpoints relied on SameSite alone | Added header + Origin guard, explicit CORS headers | see git log |
 | -  | Frontend production build broken | Fixed (5 type errors) | apsonicui af0c89b |
 
-Open: H2/H4 (in-memory access token, short expiry, jti/iss/aud), CSRF review of cookie endpoints,
-H5 (rate limiting), H6 (actuator/swagger/error detail by profile), M3 (security headers), H3 (HTML sanitising).
+Open: H5 (rate limiting), H6 (actuator/swagger/error detail by profile), M3 (security headers), H3 (HTML sanitising).
 
 ## Accepted risks
 - Dev-only npm advisories (`braces`/`micromatch`/`fast-glob` via `eslint-config-next`): not in the production bundle;
@@ -30,3 +33,15 @@ resources have been created or modified):
 - Keep `UploadContentValidator` in front of the SDK call; OSS does not validate content.
 - Migration of the existing 101 files is a separate, reviewed step (copy, verify checksums, then switch URLs).
 - Open decision: bucket/CDN domain naming and region. To be discussed with the deployment architecture.
+
+## Deployment notes for the auth changes
+- All existing sessions end once at deploy (old access tokens lack `jti`; stored refresh tokens are no longer raw).
+- `JWT_ACCESS_EXPIRATION_MS` above 1 hour now fails startup. A stale 24h value in an existing `.env` must be removed.
+- `CORS_ALLOWED_ORIGINS` must contain the exact public site origin(s): the CSRF guard rejects other `Origin`s on
+  `/auth/refresh` and `/auth/logout`. The API must also be reachable by the browser from that origin (proxy).
+- Frontend and backend must be deployed together (the frontend now sends `X-Requested-With: apsonic-web`).
+
+## Known follow-ups
+- Admin pages fire data requests before the session is restored (about 8 initial 401s, recovered by the shared
+  refresh). Gate fetching on auth readiness in Phase 3.
+- Multi-tab: a refresh race inside 10s is tolerated; outside it a replay revokes all sessions by design.
