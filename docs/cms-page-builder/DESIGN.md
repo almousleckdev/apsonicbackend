@@ -159,3 +159,9 @@ Autosave: debounced draft save (2.5 s after the last change) with an explicit st
 - The products page still filters from static data (existing limitation), so `product-showcase` can only show categories/products that exist in the database.
 - Uploads are local disk; media validation checks path shape, not file content (existing upload endpoint is unchanged).
 - Services page currently lets a published CMS page with slug `services` override the built-in page; this behavior is preserved.
+
+## Addendum: text styles and fields shared by every section
+
+- Every section with a heading offers the same three pieces of text: a small label above (`eyebrow`), the `heading` and a subheading (`intro`; `subheading` in the hero, `text` in the call to action). Each can be given a size (50–300 %, 100 = the section's normal size), a `#rrggbb` color and one of four bundled typefaces (`default`, `serif`, `condensed`, `mono`) through shared style fields (`eyebrowSize/Color/Font`, `headingSize/Color/Font`, `subheadingSize/Color/Font`). They are validated like every other style value (closed list, range, hex color); the renderer maps them to CSS custom properties and class names, never to free text.
+- Content saved before this change is upgraded on save (`SectionRegistry.upgradeContent`): the hero's old `headingSize` choice was dropped in favour of the shared percentage.
+- The editor's own texts are bilingual (中文 + English); see `apsonicui/messages/README.md`.
