@@ -300,7 +300,9 @@ class PageBuilderIntegrationTest extends PageApiTestSupport {
         String[] badSections = {
                 "{\"type\":\"hero\",\"content\":{\"ctas\":[{\"label\":{\"en\":\"Go\"},\"url\":\"javascript:alert(1)\"}]}}",
                 "{\"type\":\"hero\",\"content\":{\"desktopImage\":\"data:image/svg+xml;base64,PHN2Zz4=\"}}",
-                "{\"type\":\"cta-banner\",\"content\":{\"buttonUrl\":\"//evil.example/phish\"}}",
+                "{\"type\":\"cta-banner\",\"content\":{\"ctas\":[{\"label\":{\"en\":\"Go\"},\"url\":\"//evil.example/phish\"}]}}",
+                "{\"type\":\"hero\",\"content\":{\"overlayColor\":\"red; background:url(//evil.example)\"}}",
+                "{\"type\":\"spacer\",\"style\":{\"backgroundColor\":\"expression(alert(1))\"},\"content\":{}}",
                 "{\"type\":\"hero\",\"content\":{\"heading\":{\"en\":\"<script>alert(1)</script>\"}}}",
                 "{\"type\":\"custom-react\",\"content\":{}}",
                 "{\"type\":\"hero\",\"content\":{\"dangerouslySetInnerHTML\":\"<b>x</b>\"}}"};
@@ -459,6 +461,9 @@ class PageBuilderIntegrationTest extends PageApiTestSupport {
         catalogue.path("sections").forEach(s -> types.add(s.path("type").asText()));
         assertThat(types).contains("hero", "rich-text", "text-image", "gallery", "video", "feature-grid", "stats",
                 "product-showcase", "service-showcase", "cta-banner", "testimonials", "news-list", "faq", "dealers", "contact");
+        // Shared look (colors, picture, buttons) is described once and each section says which parts it uses.
+        assertThat(catalogue.path("styleFields").toString()).contains("\"name\":\"backgroundColor\"").contains("\"kind\":\"COLOR\"")
+                .contains("\"name\":\"buttonColor\"");
         JsonNode hero = null;
         for (JsonNode s : catalogue.path("sections")) {
             if ("hero".equals(s.path("type").asText())) {

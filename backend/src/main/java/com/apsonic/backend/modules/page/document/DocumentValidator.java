@@ -39,6 +39,7 @@ public class DocumentValidator {
     public static final int MAX_DOCUMENT_CHARS = 900_000;
 
     private static final List<String> LOCALE_ORDER = List.of("en", "fr", "zh");
+    private static final Pattern HEX_COLOR = Pattern.compile("^#[0-9a-fA-F]{6}$");
     private static final Pattern TAG_LIKE = Pattern.compile("<\\s*[A-Za-z/!?]");
     private static final Map<String, Integer> META_FIELDS = Map.of(
             "title", 150, "seoTitle", 120, "seoDescription", 320, "ogTitle", 120, "ogDescription", 320);
@@ -241,7 +242,8 @@ public class DocumentValidator {
             out.set("style", style(input.get("style"), path + ".style"));
             // Required-field checks only apply to sections that will be visible.
             boolean enforceRequired = mode == Mode.PUBLISH && !hidden;
-            out.set("content", object(input.get("content"), definition.fields(), path + ".content", enforceRequired, !hidden));
+            JsonNode content = registry.upgradeContent(type, input.get("content"));
+            out.set("content", object(content, definition.fields(), path + ".content", enforceRequired, !hidden));
             return out;
         }
 
@@ -398,6 +400,17 @@ public class DocumentValidator {
                         return null;
                     }
                     return F.textNode(text);
+                }
+                case COLOR -> {
+                    String text = text(value, path);
+                    if (text == null) {
+                        return null;
+                    }
+                    if (!HEX_COLOR.matcher(text).matches()) {
+                        error(path, "invalid_color", "Must be a color like #00a651");
+                        return null;
+                    }
+                    return F.textNode(text.toLowerCase());
                 }
                 case ENUM -> {
                     String text = text(value, path);

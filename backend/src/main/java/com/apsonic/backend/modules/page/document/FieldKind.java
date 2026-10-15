@@ -14,6 +14,8 @@ public enum FieldKind {
     MEDIA,
     /** One of a closed list of values. */
     ENUM,
+    /** A color written as #rrggbb. Never a CSS expression, so it is safe to put in a style attribute. */
+    COLOR,
     /** An integer within a range. */
     NUMBER,
     BOOLEAN,

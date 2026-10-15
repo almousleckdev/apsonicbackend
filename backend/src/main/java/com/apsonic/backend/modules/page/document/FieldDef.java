@@ -23,11 +23,18 @@ public final class FieldDef {
     private Integer min;
     private Integer max;
     private List<String> options;
+    /** Friendly names for {@link #options}, in the same order (optional). */
+    private List<String> optionLabels;
     private Object defaultValue;
     private List<FieldDef> itemFields;
     private Integer minItems;
     private Integer maxItems;
     private String help;
+    /** Editor grouping ("Picture", "Buttons"...). Presentation only. */
+    private String group;
+    /** Show this field only while another field of the same object has one of these values ("*" = any non-empty value). */
+    private String showWhenField;
+    private List<String> showWhenValues;
 
     private FieldDef(String name, FieldKind kind, String label) {
         this.name = name;
@@ -57,6 +64,11 @@ public final class FieldDef {
 
     public static FieldDef media(String name, String label) {
         return of(name, FieldKind.MEDIA, label);
+    }
+
+    /** A #rrggbb color; leaving it empty means "automatic". */
+    public static FieldDef color(String name, String label) {
+        return of(name, FieldKind.COLOR, label);
     }
 
     public static FieldDef choice(String name, String label, String defaultValue, String... options) {
@@ -102,6 +114,29 @@ public final class FieldDef {
 
     public FieldDef maxLength(int maxLength) {
         this.maxLength = maxLength;
+        return this;
+    }
+
+    public FieldDef group(String group) {
+        this.group = group;
+        return this;
+    }
+
+    public FieldDef showWhen(String field, String... values) {
+        this.showWhenField = field;
+        this.showWhenValues = List.of(values);
+        return this;
+    }
+
+    /** Friendly names for the options, in the same order, e.g. choice(..., "primary", "secondary").labels("Solid", "Outline"). */
+    public FieldDef labels(String... labels) {
+        this.optionLabels = List.of(labels);
+        return this;
+    }
+
+    /** Sets the value a new section starts with. */
+    public FieldDef withDefault(Object value) {
+        this.defaultValue = value;
         return this;
     }
 
