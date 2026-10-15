@@ -30,4 +30,11 @@ public final class SecurityUtils {
 
         return Optional.empty();
     }
+
+    /** True when the signed-in user holds the given authority (role or permission name). */
+    public static boolean hasAuthority(String authority) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return authentication != null && authentication.isAuthenticated()
+                && authentication.getAuthorities().stream().anyMatch(a -> authority.equals(a.getAuthority()));
+    }
 }

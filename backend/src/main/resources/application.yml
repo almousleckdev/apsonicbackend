@@ -119,6 +119,10 @@ springdoc:
 app:
   rate-limit:
     enabled: true
+  preview:
+    # Signs page preview links. Required in production (openssl rand -base64 48); a temporary key is used elsewhere.
+    secret: ${PREVIEW_TOKEN_SECRET:}
+    ttl-minutes: 15
   bootstrap-admin:
     username: ${BOOTSTRAP_ADMIN_USERNAME:}
     email: ${BOOTSTRAP_ADMIN_EMAIL:}

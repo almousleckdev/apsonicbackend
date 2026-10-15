@@ -55,6 +55,9 @@ public class SecurityConfig {
             "/api/v1/products/**",
             "/api/v1/cms/**",
             "/api/v1/pages/**",
+            "/api/v1/navigation/**",
+            // Draft preview: authorised by a signed expiring token checked in the service, not by a login.
+            "/api/v1/preview/pages/*",
             "/uploads/**",
             "/actuator/health",
             "/actuator/health/**",

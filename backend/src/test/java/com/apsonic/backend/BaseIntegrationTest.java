@@ -56,6 +56,12 @@ public abstract class BaseIntegrationTest {
             return Base64.getEncoder().encodeToString(key);
         });
         registry.add("app.security.jwt.expiration-ms", () -> "900000");
+        // Production refuses to start without a preview signing key, so the prod-profile tests need one too.
+        registry.add("app.preview.secret", () -> {
+            byte[] key = new byte[48];
+            new SecureRandom().nextBytes(key);
+            return Base64.getEncoder().encodeToString(key);
+        });
         registry.add("app.cors.allowed-origins", () -> ALLOWED_ORIGIN);
         registry.add("app.bootstrap-admin.username", () -> BOOTSTRAP_ADMIN_USERNAME);
         registry.add("app.bootstrap-admin.email", () -> "it-owner@apsonic.test");

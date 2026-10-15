@@ -1,4 +1,4 @@
-package com.apsonic.backend.modules.page.domain.enums;
+package com.apsonic.backend.modules.page.domain;
 
 public enum PageStatus {
     DRAFT,

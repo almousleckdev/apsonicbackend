@@ -23,6 +23,20 @@ import java.util.List;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(ValidationFailedException.class)
+    public ResponseEntity<ErrorResponse> handleValidationFailed(ValidationFailedException ex, HttpServletRequest request) {
+        log.warn("Content validation failed on [{}]: {} problem(s)", request.getRequestURI(), ex.getErrors().size());
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .timestamp(Instant.now())
+                .status(HttpStatus.BAD_REQUEST.value())
+                .error(HttpStatus.BAD_REQUEST.getReasonPhrase())
+                .message(ex.getMessage())
+                .path(request.getRequestURI())
+                .errors(ex.getErrors())
+                .build();
+        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+    }
+
     @ExceptionHandler(BaseException.class)
     public ResponseEntity<ErrorResponse> handleBaseException(BaseException ex, HttpServletRequest request) {
         if (ex.getStatus() == HttpStatus.UNAUTHORIZED && "Refresh token cookie is missing".equals(ex.getMessage())) {
@@ -159,6 +173,14 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleUnreadableRequest(Exception ex, HttpServletRequest request) {
         log.debug("Unreadable request on [{}]: {}", request.getRequestURI(), ex.getClass().getSimpleName());
         return clientError(HttpStatus.BAD_REQUEST, "Malformed or invalid request", request);
+    }
+
+    /** Two writers raced on the same row: the later one is told to reload instead of overwriting. */
+    @ExceptionHandler(org.springframework.dao.OptimisticLockingFailureException.class)
+    public ResponseEntity<ErrorResponse> handleOptimisticLock(Exception ex, HttpServletRequest request) {
+        log.debug("Optimistic lock conflict on [{}]", request.getRequestURI());
+        return clientError(HttpStatus.CONFLICT,
+                "This item was changed by someone else. Reload it to see the latest version.", request);
     }
 
     @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)

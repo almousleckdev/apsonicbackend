@@ -76,26 +76,22 @@ class HtmlSanitizationIntegrationTest extends BaseIntegrationTest {
     }
 
     @Test
-    void publishedCmsPageSectionsAreSanitizedAndPlainTextIsUntouched() throws Exception {
+    void pageContentStoredBeforeThePolicyExistedIsSanitizedWhenServed() throws Exception {
+        // A row written directly to the database, bypassing every save-time check (old data, manual edits, a bug).
         String slug = "page-" + UUID.randomUUID().toString().substring(0, 8);
-        Map<String, Object> request = Map.of(
-                "slug", slug, "status", "PUBLISHED",
-                "translations", Map.of("en", Map.of("title", "Fast & Furious")),
-                "sections", List.of(Map.of("sectionType", "RICH_TEXT", "sectionOrder", 0,
-                        "configuration", Map.of("contentHtml", Map.of("en", EVIL), "heading", "Fast & Furious"))));
-        mockMvc.perform(post("/api/v1/admin/pages").header("Authorization", "Bearer " + adminToken())
-                        .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().is2xxSuccessful());
+        String document = objectMapper.writeValueAsString(Map.of("schemaVersion", 1,
+                "meta", Map.of("en", Map.of("title", "Fast & Furious")),
+                "sections", List.of(Map.of("id", UUID.randomUUID().toString(), "type", "rich-text", "hidden", false,
+                        "content", Map.of("body", Map.of("en", EVIL))))));
+        jdbc.update("INSERT INTO cms_pages (slug, title, status, draft_document, published_document, published_at) "
+                + "VALUES (?, 'Fast & Furious', 'PUBLISHED', ?::jsonb, ?::jsonb, now())", slug, document, document);
 
         JsonNode page = objectMapper.readTree(mockMvc.perform(get("/api/v1/pages/slug/" + slug)).andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString()).at("/data");
 
-        JsonNode config = page.at("/publishedSnapshot/sections/0/configuration");
-        assertClean(config.at("/contentHtml/en").asText());
-        assertThat(config.at("/heading").asText()).isEqualTo("Fast & Furious");
-        assertThat(page.at("/publishedSnapshot/translations/en/title").asText()).isEqualTo("Fast & Furious");
-
-        String stored = jdbc.queryForObject("SELECT configuration::text FROM cms_page_sections s JOIN cms_pages p ON p.id = s.page_id WHERE p.slug = ?", String.class, slug);
-        assertThat(stored.toLowerCase()).doesNotContain("<script", "onerror", "javascript:");
+        assertClean(page.at("/document/sections/0/content/body/en").asText());
+        // Plain text is never entity-encoded.
+        assertThat(page.at("/document/meta/en/title").asText()).isEqualTo("Fast & Furious");
+        assertThat(page.at("/title").asText()).isEqualTo("Fast & Furious");
     }
 }

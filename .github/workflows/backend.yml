@@ -59,7 +59,7 @@ jobs:
       - name: Validate compose file
         run: |
           cp deploy/.env.production.example /tmp/ci.env
-          sed -i 's/^JWT_SECRET=.*/JWT_SECRET=x/; s/^DB_PASSWORD=.*/DB_PASSWORD=x/; s/^REDIS_PASSWORD=.*/REDIS_PASSWORD=x/' /tmp/ci.env
+          sed -i 's/^JWT_SECRET=.*/JWT_SECRET=x/; s/^PREVIEW_TOKEN_SECRET=.*/PREVIEW_TOKEN_SECRET=x/; s/^DB_PASSWORD=.*/DB_PASSWORD=x/; s/^REDIS_PASSWORD=.*/REDIS_PASSWORD=x/' /tmp/ci.env
           docker compose --env-file /tmp/ci.env -f deploy/docker-compose.prod.yml config -q
 
   secrets:

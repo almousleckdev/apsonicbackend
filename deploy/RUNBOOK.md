@@ -109,9 +109,10 @@ cd /opt/apsonic
 cp .env.production.example .env.production && chmod 600 .env.production
 nano .env.production
 ```
-Fill in the domain, e-mail and the three secrets, generating **fresh** values (never reuse anything from development):
+Fill in the domain, e-mail and the secrets, generating **fresh** values (never reuse anything from development):
 ```bash
 openssl rand -base64 48                      # JWT_SECRET
+openssl rand -base64 48                      # PREVIEW_TOKEN_SECRET (a different value)
 openssl rand -base64 24 | tr -d '/+='        # DB_PASSWORD   and again for REDIS_PASSWORD
 ```
 Set `BOOTSTRAP_ADMIN_*` (password ≥ 12 characters, mixed). There is no default account.
@@ -192,6 +193,7 @@ docker image prune -a --filter "until=720h"   # old images, monthly
 | Secret | Effect and steps |
 |---|---|
 | `JWT_SECRET` | Everyone is signed out. Edit `.env.production`, `dc up -d backend`. |
+| `PREVIEW_TOKEN_SECRET` | Outstanding page preview links stop working (they last 15 minutes anyway). Edit `.env.production`, `dc up -d backend`. |
 | `REDIS_PASSWORD` | Edit, then `dc up -d redis backend`. Rate-limit counters and token revocations reset. |
 | `DB_PASSWORD` | Change inside Postgres first (`ALTER USER ... PASSWORD ...`), then edit `.env.production`, then `dc up -d backend`. Changing only the file breaks login to the database. |
 
