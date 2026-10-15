@@ -40,8 +40,33 @@ public class SectionRegistry {
     private static final String[] ICONS = {"none", "shield", "truck", "wrench", "zap", "award", "globe", "users", "check",
             "star", "clock", "map-pin", "phone", "heart", "settings", "leaf", "bike"};
 
+    /** Typefaces an editor can pick for a piece of text. The frontend maps each name to a bundled font stack. */
+    private static final String[] FONTS = {"default", "serif", "condensed", "mono"};
+    private static final String[] FONT_LABELS = {"Apsonic default", "Elegant serif", "Bold condensed", "Typewriter"};
+
+    /** Size (as % of the normal size), color and typeface for one piece of text: "eyebrow", "heading" or "subheading". */
+    private static List<FieldDef> textStyle(String role, String group) {
+        return List.of(
+                number(role + "Size", "Size (%)", 50, 300, 100).group(group),
+                color(role + "Color", "Color").help("Leave empty to use the section's text color.").group(group),
+                choice(role + "Font", "Font", "default", FONTS).labels(FONT_LABELS).group(group));
+    }
+
+    @SafeVarargs
+    private static List<FieldDef> concatFields(List<FieldDef>... parts) {
+        List<FieldDef> all = new java.util.ArrayList<>();
+        for (List<FieldDef> part : parts) {
+            all.addAll(part);
+        }
+        return List.copyOf(all);
+    }
+
+    private static final List<String> TEXT_STYLE_NAMES = List.of(
+            "eyebrowSize", "eyebrowColor", "eyebrowFont", "headingSize", "headingColor", "headingFont",
+            "subheadingSize", "subheadingColor", "subheadingFont");
+
     /** Layout and look shared by sections. Which of them a type uses is decided by its definition. */
-    private static final List<FieldDef> STYLE_FIELDS = List.of(
+    private static final List<FieldDef> STYLE_FIELDS = concatFields(List.of(
             choice("background", "Background", "white", "white", "light", "dark", "brand", "custom")
                     .labels("White", "Light grey", "Dark", "Apsonic green", "My own color").group("Background"),
             color("backgroundColor", "Background color").showWhen("background", "custom").group("Background"),
@@ -64,12 +89,27 @@ public class SectionRegistry {
             choice("paddingBottom", "Space below", "md", "none", "sm", "md", "lg", "xl").labels("None", "Small", "Medium", "Large", "Extra large").group("Spacing"),
             choice("width", "Content width", "normal", "narrow", "normal", "wide").labels("Narrow", "Normal", "Wide").group("Spacing"),
 
-            choice("showOn", "Show on", "all", "all", "desktop", "mobile").labels("All screens", "Computers and tablets only", "Phones only").group("Visibility"));
+            choice("showOn", "Show on", "all", "all", "desktop", "mobile").labels("All screens", "Computers and tablets only", "Phones only").group("Visibility")),
+            textStyle("eyebrow", "Small label"), textStyle("heading", "Heading"), textStyle("subheading", "Subheading"));
 
     private static final List<String> STYLE_BUTTONS = List.of("buttonColor", "buttonTextColor", "buttonShape");
     private static final List<String> STYLE_COMMON = List.of("textColor", "accentColor", "paddingTop", "paddingBottom", "width", "showOn");
 
     private final Map<String, SectionDefinition> definitions = new LinkedHashMap<>();
+
+    // --- the three pieces of text most sections open with ---------------------------------------------------
+
+    private static FieldDef eyebrow() {
+        return text("eyebrow", "Small label above").localized().maxLength(60).group("Text");
+    }
+
+    private static FieldDef heading() {
+        return text("heading", "Heading").localized().maxLength(160).group("Text");
+    }
+
+    private static FieldDef intro() {
+        return textarea("intro", "Subheading").localized().maxLength(600).group("Text");
+    }
 
     // --- reusable field groups ---------------------------------------------------------------------------------
 
@@ -93,10 +133,9 @@ public class SectionRegistry {
     public SectionRegistry() {
         register(new SectionDefinition("hero", "Hero banner", "Large banner with a heading, picture or video and buttons.",
                 "Banners", List.of(
-                text("eyebrow", "Small label above").localized().maxLength(60).group("Text"),
+                eyebrow(),
                 text("heading", "Heading").localized().required().maxLength(160).group("Text"),
                 textarea("subheading", "Subheading").localized().maxLength(400).group("Text"),
-                choice("headingSize", "Heading size", "lg", "md", "lg", "xl").labels("Medium", "Large", "Extra large").group("Text"),
                 choice("align", "Text alignment", "left", "left", "center", "right").group("Text"),
                 choice("verticalAlign", "Text position", "center", "top", "center", "bottom").labels("Top", "Middle", "Bottom").group("Text"),
 
@@ -114,7 +153,7 @@ public class SectionRegistry {
                 choice("height", "Height", "lg", "md", "lg", "full", "custom").labels("Medium", "Large", "Full screen", "My own height").group("Size"),
                 number("minHeight", "Height (px)", 240, 1000, 560).showWhen("height", "custom").group("Size"),
                 buttons(3)))
-                .withStyle(concat(List.of("textColor", "accentColor", "showOn"), STYLE_BUTTONS), Map.of()));
+                .withStyle(concat(concat(List.of("textColor", "accentColor", "showOn"), TEXT_STYLE_NAMES), STYLE_BUTTONS), Map.of()));
 
         register(new SectionDefinition("rich-text", "Rich text", "Formatted text: headings, lists, links and images.",
                 "Content", List.of(
@@ -124,7 +163,7 @@ public class SectionRegistry {
 
         register(new SectionDefinition("text-image", "Text and image", "Text next to an image, on either side.",
                 "Content", List.of(
-                text("eyebrow", "Small label").localized().maxLength(60).group("Text"),
+                eyebrow(),
                 text("heading", "Heading").localized().required().maxLength(160).group("Text"),
                 richText("body", "Text").localized().maxLength(10_000).group("Text"),
                 choice("textAlign", "Text alignment", "left", "left", "center").group("Text"),
@@ -140,7 +179,7 @@ public class SectionRegistry {
 
         register(new SectionDefinition("gallery", "Image gallery", "A grid of images with optional captions.",
                 "Media", List.of(
-                text("heading", "Heading").localized().maxLength(160).group("Text"),
+                eyebrow(), heading(), intro(),
                 list("items", "Images", 1, 36,
                         media("image", "Image").required(),
                         text("caption", "Caption").localized().maxLength(200)).group("Images"),
@@ -152,7 +191,7 @@ public class SectionRegistry {
 
         register(new SectionDefinition("video", "Video", "A single video with a poster image.",
                 "Media", List.of(
-                text("heading", "Heading").localized().maxLength(160).group("Text"),
+                eyebrow(), heading(), intro(),
                 text("caption", "Caption").localized().maxLength(300).group("Text"),
                 media("videoUrl", "Video file").required().help("MP4 or WebM, uploaded or an https link.").group("Video"),
                 media("poster", "Poster image").group("Video"),
@@ -164,8 +203,7 @@ public class SectionRegistry {
 
         register(new SectionDefinition("feature-grid", "Feature grid", "Icon cards that highlight strengths or steps.",
                 "Content", List.of(
-                text("heading", "Heading").localized().maxLength(160).group("Text"),
-                textarea("intro", "Introduction").localized().maxLength(600).group("Text"),
+                eyebrow(), heading(), intro(),
                 list("items", "Cards", 1, 12,
                         choice("icon", "Icon", "check", ICONS),
                         text("title", "Title").localized().required().maxLength(100),
@@ -179,8 +217,7 @@ public class SectionRegistry {
 
         register(new SectionDefinition("stats", "Statistics", "Key numbers and achievements.",
                 "Content", List.of(
-                text("heading", "Heading").localized().maxLength(160).group("Text"),
-                textarea("intro", "Introduction").localized().maxLength(600).group("Text"),
+                eyebrow(), heading(), intro(),
                 list("items", "Figures", 1, 12,
                         text("value", "Value").required().maxLength(20).help("For example 25+ or 1.2M"),
                         text("label", "Label").localized().required().maxLength(100),
@@ -197,8 +234,7 @@ public class SectionRegistry {
 
         register(new SectionDefinition("product-showcase", "Product showcase", "Shows products from the catalogue.",
                 "Showcase", List.of(
-                text("heading", "Heading").localized().maxLength(160).group("Text"),
-                textarea("intro", "Introduction").localized().maxLength(600).group("Text"),
+                eyebrow(), heading(), intro(),
                 text("categorySlug", "Category").maxLength(80).help("Leave empty to show the latest products.").group("Products"),
                 number("limit", "Number of products", 1, 12, 4).group("Products"),
                 choice("columns", "Per row", "4", COLUMNS_234).group("Look"),
@@ -207,8 +243,7 @@ public class SectionRegistry {
 
         register(new SectionDefinition("service-showcase", "Service showcase", "Cards describing the services you offer.",
                 "Showcase", List.of(
-                text("heading", "Heading").localized().maxLength(160).group("Text"),
-                textarea("intro", "Introduction").localized().maxLength(600).group("Text"),
+                eyebrow(), heading(), intro(),
                 list("items", "Services", 1, 12,
                         text("title", "Title").localized().required().maxLength(100),
                         textarea("text", "Text").localized().maxLength(400),
@@ -219,8 +254,9 @@ public class SectionRegistry {
 
         register(new SectionDefinition("cta-banner", "Call to action", "A bold banner that sends visitors somewhere.",
                 "Conversion", List.of(
+                eyebrow(),
                 text("heading", "Heading").localized().required().maxLength(160).group("Text"),
-                textarea("text", "Text").localized().maxLength(400).group("Text"),
+                textarea("text", "Subheading").localized().maxLength(400).group("Text"),
                 choice("align", "Text alignment", "center", "left", "center", "right").group("Text"),
 
                 media("image", "Background picture").group("Picture"),
@@ -233,14 +269,13 @@ public class SectionRegistry {
                 choice("height", "Height", "md", "sm", "md", "lg", "custom").labels("Small", "Medium", "Large", "My own height").group("Size"),
                 number("minHeight", "Height (px)", 160, 800, 320).showWhen("height", "custom").group("Size"),
                 buttons(2)))
-                .withStyle(concat(List.of("background", "backgroundColor", "paddingTop", "paddingBottom", "width"), concat(STYLE_COMMON, STYLE_BUTTONS)),
+                .withStyle(concat(List.of("background", "backgroundColor", "paddingTop", "paddingBottom", "width"), concat(concat(STYLE_COMMON, TEXT_STYLE_NAMES), STYLE_BUTTONS)),
                         Map.of("background", "brand", "paddingTop", "lg", "paddingBottom", "lg")));
 
         register(new SectionDefinition("testimonials", "Testimonials", "What customers say about Apsonic, with their photo and role.",
                 "Social proof", List.of(
-                text("heading", "Heading").localized().maxLength(160).group("Text"),
-                textarea("intro", "Description").localized().maxLength(400).group("Text"),
-                choice("source", "Where the testimonials come from", "custom", "custom", "site")
+                eyebrow(), heading(), intro(),
+                                choice("source", "Where the testimonials come from", "custom", "custom", "site")
                         .labels("Written here", "The site list (Home Page > Testimonials)").group("Testimonials"),
                 number("limit", "Number shown", 1, 12, 3).showWhen("source", "site").group("Testimonials"),
                 list("items", "Testimonials", 0, 12,
@@ -258,7 +293,7 @@ public class SectionRegistry {
 
         register(new SectionDefinition("news-list", "News", "The latest published news articles.",
                 "Showcase", List.of(
-                text("heading", "Heading").localized().maxLength(160).group("Text"),
+                eyebrow(), heading(), intro(),
                 number("limit", "Number of articles", 1, 6, 3).group("News"),
                 choice("columns", "Per row", "3", "2", "3").group("News"),
                 flag("showDate", "Show the date", true).group("News"),
@@ -266,7 +301,7 @@ public class SectionRegistry {
 
         register(new SectionDefinition("faq", "FAQ", "Questions and answers.",
                 "Content", List.of(
-                text("heading", "Heading").localized().maxLength(160).group("Text"),
+                eyebrow(), heading(), intro(),
                 list("items", "Questions", 1, 30,
                         text("question", "Question").localized().required().maxLength(250),
                         richText("answer", "Answer").localized().required().maxLength(5000)).group("Questions"),
@@ -275,8 +310,7 @@ public class SectionRegistry {
 
         register(new SectionDefinition("dealers", "Dealers and locations", "Dealer addresses and contact details.",
                 "Showcase", List.of(
-                text("heading", "Heading").localized().maxLength(160).group("Text"),
-                textarea("intro", "Introduction").localized().maxLength(600).group("Text"),
+                eyebrow(), heading(), intro(),
                 list("items", "Locations", 1, 40,
                         text("name", "Name").required().maxLength(120),
                         text("city", "City").maxLength(80),
@@ -290,8 +324,7 @@ public class SectionRegistry {
 
         register(new SectionDefinition("contact", "Contact details", "Address, phone and email, with a link to the form.",
                 "Conversion", List.of(
-                text("heading", "Heading").localized().maxLength(160).group("Text"),
-                textarea("intro", "Introduction").localized().maxLength(600).group("Text"),
+                eyebrow(), heading(), intro(),
                 text("email", "Email").maxLength(120).group("Details"),
                 text("phone", "Phone").maxLength(40).group("Details"),
                 textarea("address", "Address").localized().maxLength(300).group("Details"),
@@ -314,6 +347,12 @@ public class SectionRegistry {
     public JsonNode upgradeContent(String type, JsonNode content) {
         if (content == null || !content.isObject()) {
             return content;
+        }
+        if ("hero".equals(type) && content.has("headingSize")) {
+            // The heading size moved to the shared text styles (style.headingSize, a percentage).
+            ObjectNode withoutSize = content.deepCopy();
+            withoutSize.remove("headingSize");
+            return withoutSize;
         }
         String labelKey;
         String urlKey;

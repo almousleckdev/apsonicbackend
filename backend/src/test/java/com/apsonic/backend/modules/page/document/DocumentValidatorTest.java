@@ -280,4 +280,41 @@ class DocumentValidatorTest {
         // Genuinely unknown fields are still rejected.
         assertThat(hasError(validator.check(json(doc("{'type':'cta-banner','content':{'onclick':'x'}}")), Mode.DRAFT), "unknown_field", "onclick")).isTrue();
     }
+
+    @Test
+    void headingEyebrowAndSubheadingCanBeSizedColoredAndGivenAFont() throws Exception {
+        String ok = "{'type':'stats','style':{'headingSize':150,'headingColor':'#AA0000','headingFont':'serif','eyebrowSize':80,'subheadingFont':'mono'},"
+                + "'content':{'eyebrow':{'en':'Facts'},'heading':{'en':'In numbers'},'intro':{'en':'Since 1999'}}}";
+        DocumentCheck check = validator.check(json(doc(ok)), Mode.DRAFT);
+        assertThat(check.errors()).isEmpty();
+        assertThat(check.document().at("/sections/0/style/headingColor").asText()).isEqualTo("#aa0000");
+
+        // Only listed fonts, sane sizes and hex colors get through: nothing typed here can become CSS.
+        for (String bad : new String[] {"'headingFont':'Comic Sans; background:url(x)'", "'headingSize':5000", "'subheadingColor':'red'"}) {
+            DocumentCheck rejected = validator.check(json(doc("{'type':'stats','style':{" + bad + "},'content':{}}")), Mode.DRAFT);
+            assertThat(rejected.errors()).as(bad).isNotEmpty();
+        }
+    }
+
+    @Test
+    void everySectionThatHasAHeadingOffersTheSameTextStyles() {
+        SectionRegistry registry = new SectionRegistry();
+        for (SectionDefinition def : registry.all()) {
+            boolean hasHeading = def.fields().stream().anyMatch(f -> f.getName().equals("heading"));
+            if (!hasHeading) {
+                continue;
+            }
+            java.util.List<String> names = def.styleFieldNames() == null ? registry.styleFields().stream().map(FieldDef::getName).toList() : def.styleFieldNames();
+            assertThat(names).as(def.type()).contains("headingSize", "headingColor", "headingFont", "eyebrowSize", "subheadingFont");
+            assertThat(def.fields().stream().map(FieldDef::getName)).as(def.type()).contains("eyebrow");
+        }
+    }
+
+    @Test
+    void heroDraftsWithTheOldHeadingSizeChoiceAreUpgradedInsteadOfRejected() throws Exception {
+        String old = "{'type':'hero','content':{'heading':{'en':'Ride'},'headingSize':'xl'}}";
+        DocumentCheck check = validator.check(json(doc(old)), Mode.DRAFT);
+        assertThat(check.errors()).isEmpty();
+        assertThat(check.document().at("/sections/0/content").has("headingSize")).isFalse();
+    }
 }
