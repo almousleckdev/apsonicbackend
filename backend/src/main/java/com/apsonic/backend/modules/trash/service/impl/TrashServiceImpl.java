@@ -41,7 +41,7 @@ public class TrashServiceImpl implements TrashService {
             case "news" -> "title_en";
             case "users" -> "email";
             case "notifications", "contact" -> "subject";
-            case "pages", "cms_pages" -> "title_en";
+            case "pages", "cms_pages" -> "title";
             default -> "id";
         };
     }
