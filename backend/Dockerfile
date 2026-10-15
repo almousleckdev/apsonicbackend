@@ -3,7 +3,10 @@
 # The jar is split into layers (dependencies / loader / application) so a code-only release changes one small layer.
 
 # ---- build -----------------------------------------------------------------------------------
-FROM eclipse-temurin:21-jdk AS build
+# Runs on the machine doing the build, whatever its CPU: the jar is plain Java bytecode and identical on every
+# architecture. Only the runtime stage below is built for the target CPU. (Emulating a foreign CPU for the Maven
+# build fails on Apple-silicon Macs and is much slower.)
+FROM --platform=$BUILDPLATFORM eclipse-temurin:21-jdk AS build
 WORKDIR /build
 COPY .mvn .mvn
 COPY mvnw pom.xml ./
