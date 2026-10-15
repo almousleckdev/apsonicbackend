@@ -59,7 +59,7 @@ public class CategoryServiceImpl implements CategoryService {
     @Transactional
     public CategoryResponse createCategory(CreateCategoryRequest request) {
         String cleanSlug = request.getSlug().trim().toLowerCase();
-        if (categoryRepository.existsBySlug(cleanSlug)) {
+        if (categoryRepository.slugTakenIncludingDeleted(cleanSlug)) {
             throw new DuplicateResourceException("Category", "slug", cleanSlug);
         }
 
@@ -76,7 +76,7 @@ public class CategoryServiceImpl implements CategoryService {
 
         if (request.getSlug() != null && !request.getSlug().isBlank()) {
             String newSlug = request.getSlug().trim().toLowerCase();
-            if (!newSlug.equals(category.getSlug()) && categoryRepository.existsBySlug(newSlug)) {
+            if (!newSlug.equals(category.getSlug()) && categoryRepository.slugTakenIncludingDeleted(newSlug)) {
                 throw new DuplicateResourceException("Category", "slug", newSlug);
             }
             category.setSlug(newSlug);
