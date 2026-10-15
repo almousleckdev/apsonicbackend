@@ -15,6 +15,8 @@ services:
     environment:
       SITE_ADDRESS: ${SITE_ADDRESS:?set SITE_ADDRESS (your domain, or :80 for plain HTTP testing)}
       ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL}
+      CANONICAL_HOST: ${CANONICAL_HOST:-localhost}
+      REDIRECT_FROM_HOST: ${REDIRECT_FROM_HOST:-never.invalid}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data

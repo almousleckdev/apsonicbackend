@@ -14,13 +14,58 @@ Only Caddy has published ports. postgres / redis / backend are on an internal ne
 
 | Item | Why it matters |
 |---|---|
-| **Domain + DNS** | Create an `A` record `www.yourdomain` → the server IP. Caddy cannot get a certificate without it. |
+| **Domain + DNS** | The site is `www.apsonic-moto.com` (DNS on Alibaba Cloud DNS). **It currently serves a different live site: follow section 0b**, do not just repoint it. |
 | **Region and ICP filing** | If the ECS is in **mainland China**, a domain served on ports 80/443 must have an ICP filing or Alibaba blocks the traffic. A Hong Kong/overseas region does not need one. Check this before anything else. |
 | **Security group** (Alibaba console) | Allow inbound only: 22 from **your own IP**, 80, 443. Nothing else — never 5432/6379/8080/3000. |
 | **SSH key** | `ssh-keygen -t ed25519 -f ~/.ssh/apsonic_deploy` on your laptop. Send only the `.pub` file anywhere. |
 | **Where images come from** | Option A — a registry (Alibaba Container Registry, recommended: layers are cached, a code-only release is a few MB). Option B — copy images over SSH (section 4). |
 | **Mapbox token** | It is public by design (shipped to browsers). Restrict it by URL to your domain in the Mapbox dashboard. |
 | **Docker Hub access** | From mainland China Docker Hub is blocked; set `REGISTRY_MIRROR` (your accelerator address from the Alibaba Container Registry console) when running the bootstrap script. |
+
+## 0b. Replacing the live `www.apsonic-moto.com` site — read before touching DNS
+
+**What exists today (public DNS, looked up on 2026-10-15):**
+
+| Item | Value |
+|---|---|
+| Current site | A different company site (title "广州德诚摩托车工业有限公司", PHP/ThinkPHP on CentOS), served from **Huawei Cloud, Shenzhen** (`122.9.49.249`) |
+| DNS / registrar | **Alibaba Cloud DNS** (`dns9/dns10.hichina.com`) and Alibaba Cloud registrar |
+| `www` record | `A 122.9.49.249`, TTL 600 s ← **this is what a rollback restores** |
+| Bare domain `apsonic-moto.com` | no address record (only `www` has one) |
+| Company e-mail | live on the domain: `MX` ×3 → `mx1/2/3.qiye.aliyun.com`, SPF + Feishu `TXT`, `mail` CNAME → `qiye.aliyun.com`. **Never edit or delete these.** |
+
+The client has confirmed the new site should replace the current one. Make sure they also accept the consequences:
+the old company pages disappear; old addresses (e.g. `/index.php/...`) will show "not found" and search engines will
+re-index (rankings may dip); the old site's content should be backed up by the client before the switch.
+
+**Principle:** change exactly one DNS record, only after a full rehearsal, and keep the old server untouched so the
+change can be undone by restoring that one record.
+
+1. **Before anything:** the client (or you, with a DNS-only RAM sub-account) exports/screenshots *all* records in the
+   Alibaba Cloud DNS console. Keep it. Ask the client for a full backup of the old site (files + database).
+2. **ICP filing:** an ICP filing is tied to the hosting provider. The old site is on Huawei Cloud. If your ECS is in
+   **mainland China**, Alibaba blocks 80/443 traffic for the domain until the filing is extended to Alibaba Cloud
+   ("add access provider"), which can take days to weeks — start now. If the ECS is in Hong Kong/overseas no filing is
+   needed (but visitors in mainland China may see slower loading).
+3. **Rehearse on a temporary name** (affects nothing else): add `A staging → SERVER_IP` (TTL 600), deploy with
+   `SITE_ADDRESS=staging.apsonic-moto.com`, `PUBLIC_ORIGIN=https://staging.apsonic-moto.com`,
+   `CANONICAL_HOST=staging.apsonic-moto.com`, and test everything end to end: HTTPS padlock, admin login and logout, image
+   upload, contact form, product pages in all languages, phone browser, a backup + restore (section 7).
+4. **Cut over (pick a quiet hour; announce it).** Set `SITE_ADDRESS`, `PUBLIC_ORIGIN`, `CANONICAL_HOST` to `www.apsonic-moto.com`
+   in `.env.production`, then **in this order**:
+   1. In Alibaba Cloud DNS change **only** the `www` `A` record from `122.9.49.249` to `SERVER_IP`.
+   2. On the server: `dc up -d && dc restart caddy` (the restart makes Caddy request the certificate immediately now that DNS
+      points here), then `dc logs -f caddy` until you see the certificate was obtained. Expect 1–3 minutes of certificate errors for
+      visitors who reach the new server before it has its certificate.
+   3. Verify from your phone *on mobile data* (a different resolver): `https://www.apsonic-moto.com` loads the new site; sign in to
+      `/admin/login`; submit the contact form; and send a test e-mail to/from a company mailbox (MX was not touched, so mail must keep working).
+5. **Afterwards:** remove `BOOTSTRAP_ADMIN_PASSWORD`, confirm the backup cron ran, delete the `staging` record, and keep the old
+   server running untouched for at least two weeks.
+6. **Rollback (minutes):** set the `www` `A` record back to `122.9.49.249` (TTL 600). Visitors return to the old site within about ten
+   minutes. Nothing on the old server was modified, so nothing else is needed.
+
+Optional later: add an `A` record for the bare domain (`@`), set `SITE_ADDRESS="www.apsonic-moto.com, apsonic-moto.com"` and
+`REDIRECT_FROM_HOST=apsonic-moto.com`, and the bare domain will redirect to `www` (tested).
 
 ## 1. Prepare the server (as root, once)
 

@@ -15,6 +15,12 @@
 
 	header -Server
 
+	# One canonical address. If the site is also reachable under another hostname (e.g. the bare domain next to www),
+	# send those visitors to the canonical one with a permanent redirect. REDIRECT_FROM_HOST defaults to a name that
+	# never matches, so this does nothing unless it is configured.
+	@not_canonical host {$REDIRECT_FROM_HOST:never.invalid}
+	redir @not_canonical https://{$CANONICAL_HOST:localhost}{uri} permanent
+
 	# Everything goes to the Next.js server, which serves pages and proxies /api and /uploads to the backend.
 	# Caddy sets X-Forwarded-For to the real client address; the backend uses it for rate limiting.
 	reverse_proxy frontend:3000
