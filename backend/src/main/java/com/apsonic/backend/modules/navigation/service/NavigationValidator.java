@@ -145,7 +145,7 @@ public class NavigationValidator {
                         issues.add(new Issue(path + ".children", "The " + menu.name().toLowerCase()
                                 + " menu supports " + menu.maxDepth + " levels at most"));
                     } else if ("EXTERNAL".equals(kind) || ("ROUTE".equals(kind) && "/products".equals(in.path("route").asText()))) {
-                        issues.add(new Issue(path + ".children", "This item cannot have a dropdown"));
+                        issues.add(new Issue(path + ".children", "This item cannot have a dropdown. Move its sub-items out first"));
                     } else {
                         for (int i = 0; i < inChildren.size(); i++) {
                             ObjectNode child = item(inChildren.get(i), path + ".children[" + i + "]", depth + 1);
@@ -158,7 +158,7 @@ public class NavigationValidator {
             }
             out.set("children", children);
             if (forPublish && "GROUP".equals(kind) && children.isEmpty()) {
-                issues.add(new Issue(path, "A dropdown heading needs at least one item under it"));
+                issues.add(new Issue(path, "This heading is empty. Put at least one item under it, or remove it"));
             }
             return out;
         }
@@ -168,7 +168,7 @@ public class NavigationValidator {
                 case "PAGE" -> {
                     JsonNode raw = in.get("pageId");
                     if (raw == null || !raw.isIntegralNumber()) {
-                        issues.add(new Issue(path + ".pageId", "Choose a page"));
+                        issues.add(new Issue(path + ".pageId", "Pick the page this link should open"));
                         return;
                     }
                     long pageId = raw.longValue();
@@ -181,36 +181,36 @@ public class NavigationValidator {
                         out.put("pageId", pageId);
                     }
                     if (!pageRefs.add(pageId)) {
-                        issues.add(new Issue(path + ".pageId", "This page is already in the menu"));
+                        issues.add(new Issue(path + ".pageId", "This page is already in the menu. Each page can be added only once"));
                     }
                     CmsPage page = pages.get(pageId);
                     if (page == null || page.getStatus() == PageStatus.ARCHIVED) {
-                        issues.add(new Issue(path + ".pageId", "This page no longer exists or is archived"));
+                        issues.add(new Issue(path + ".pageId", "The page this link points to was deleted or archived. Pick another page"));
                     } else if (forPublish && page.getStatus() != PageStatus.PUBLISHED) {
-                        issues.add(new Issue(path + ".pageId", "Publish the page \"" + page.getTitle() + "\" before publishing the menu"));
+                        issues.add(new Issue(path + ".pageId", "The page \"" + page.getTitle() + "\" is not published yet. Publish that page first, then publish the menu"));
                     }
                 }
                 case "ROUTE" -> {
                     String route = text(in.get("route"));
                     if (route == null || !ROUTES.contains(route)) {
-                        issues.add(new Issue(path + ".route", "Choose one of the built-in pages " + new java.util.TreeSet<>(ROUTES)));
+                        issues.add(new Issue(path + ".route", "Pick which built-in page this link should open"));
                         return;
                     }
                     out.put("route", route);
                     if (!routes.add(route)) {
-                        issues.add(new Issue(path + ".route", "This page is already in the menu"));
+                        issues.add(new Issue(path + ".route", "This page is already in the menu. Each page can be added only once"));
                     }
                 }
                 case "EXTERNAL" -> {
                     String url = text(in.get("url"));
                     boolean absolute = url != null && !url.startsWith("/") && !url.startsWith("#") && SafeUrls.isSafeLink(url);
                     if (!absolute) {
-                        issues.add(new Issue(path + ".url", "Enter a full http(s) address, mailto: or tel: link"));
+                        issues.add(new Issue(path + ".url", "Type the full web address, starting with https:// (or mailto: / tel:)"));
                         return;
                     }
                     out.put("url", url);
                     if (!externals.add(url.toLowerCase())) {
-                        issues.add(new Issue(path + ".url", "This link is already in the menu"));
+                        issues.add(new Issue(path + ".url", "This link is already in the menu. Each link can be added only once"));
                     }
                 }
                 default -> {
@@ -244,7 +244,7 @@ public class NavigationValidator {
                 }
             }
             if (!out.has("en")) {
-                issues.add(new Issue(path + ".en", "An English label is required"));
+                issues.add(new Issue(path + ".en", "Type the English name that visitors will see"));
             }
             return out;
         }

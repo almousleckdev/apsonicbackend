@@ -238,7 +238,7 @@ class NavigationIntegrationTest extends PageApiTestSupport {
         JsonNode draftOnly = createPage(slug());
         JsonNode current = save("header", menu("header"), items(pageItem(draftOnly, "Soon")));
         send("POST", "/api/v1/admin/navigation/header/publish", admin(), Map.of("expectedVersion", current.path("version").asLong()))
-                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.errors[0].message").value(containsString("Publish the page")));
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.errors[0].message").value(containsString("is not published yet")));
         publish(draftOnly);
         publishMenu("header", current);
     }

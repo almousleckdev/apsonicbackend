@@ -1,5 +1,6 @@
 package com.apsonic.backend.modules.trash.service.impl;
 
+import com.apsonic.backend.modules.navigation.service.NavigationService;
 import com.apsonic.backend.modules.trash.dto.TrashItemResponse;
 import com.apsonic.backend.modules.trash.service.TrashService;
 import com.apsonic.backend.shared.exception.BadRequestException;
@@ -18,8 +19,13 @@ public class TrashServiceImpl implements TrashService {
 
     private final JdbcTemplate jdbcTemplate;
 
-    public TrashServiceImpl(JdbcTemplate jdbcTemplate) {
+    private static final String NAVIGATION = "navigation";
+
+    private final NavigationService navigationService;
+
+    public TrashServiceImpl(JdbcTemplate jdbcTemplate, NavigationService navigationService) {
         this.jdbcTemplate = jdbcTemplate;
+        this.navigationService = navigationService;
     }
 
     private String getTableName(String resourceType) {
@@ -49,6 +55,20 @@ public class TrashServiceImpl implements TrashService {
     @Override
     @Transactional(readOnly = true)
     public List<TrashItemResponse> getTrashItems(String resourceType) {
+        if (NAVIGATION.equalsIgnoreCase(resourceType)) {
+            return jdbcTemplate.query(
+                    "SELECT id, menu_key, title, deleted_at, deleted_by FROM cms_navigation_trash ORDER BY deleted_at DESC",
+                    (rs, rowNum) -> {
+                        Timestamp ts = rs.getTimestamp("deleted_at");
+                        String menu = "FOOTER".equals(rs.getString("menu_key")) ? "Footer" : "Header";
+                        return TrashItemResponse.builder()
+                                .id(rs.getString("id"))
+                                .title(menu + " menu · " + rs.getString("title"))
+                                .deletedAt(ts != null ? ts.toInstant() : null)
+                                .deletedBy(rs.getString("deleted_by"))
+                                .build();
+                    });
+        }
         String table = getTableName(resourceType);
         String titleCol = getTitleColumn(resourceType);
 
@@ -69,6 +89,10 @@ public class TrashServiceImpl implements TrashService {
     @Override
     @Transactional
     public void restoreItem(String resourceType, String id) {
+        if (NAVIGATION.equalsIgnoreCase(resourceType)) {
+            navigationService.restoreTrashedItem(Long.parseLong(id));
+            return;
+        }
         String table = getTableName(resourceType);
         String sql = String.format("UPDATE %s SET deleted = false, deleted_at = null, deleted_by = null WHERE id = ?", table);
         jdbcTemplate.update(sql, Long.parseLong(id));
@@ -77,6 +101,10 @@ public class TrashServiceImpl implements TrashService {
     @Override
     @Transactional
     public void deletePermanently(String resourceType, String id) {
+        if (NAVIGATION.equalsIgnoreCase(resourceType)) {
+            jdbcTemplate.update("DELETE FROM cms_navigation_trash WHERE id = ?", Long.parseLong(id));
+            return;
+        }
         String table = getTableName(resourceType);
         String sql = String.format("DELETE FROM %s WHERE id = ? AND deleted = true", table);
         jdbcTemplate.update(sql, Long.parseLong(id));
@@ -85,6 +113,10 @@ public class TrashServiceImpl implements TrashService {
     @Override
     @Transactional
     public void clearTrash(String resourceType) {
+        if (NAVIGATION.equalsIgnoreCase(resourceType)) {
+            jdbcTemplate.update("DELETE FROM cms_navigation_trash");
+            return;
+        }
         String table = getTableName(resourceType);
         String sql = String.format("DELETE FROM %s WHERE deleted = true", table);
         jdbcTemplate.update(sql);

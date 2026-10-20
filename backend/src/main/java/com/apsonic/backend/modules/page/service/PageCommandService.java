@@ -284,7 +284,7 @@ public class PageCommandService {
         try {
             return pages.saveAndFlush(page);
         } catch (DataIntegrityViolationException raced) {
-            throw new DuplicateResourceException("A page with the address '" + slug + "' already exists (or used to)");
+            throw new DuplicateResourceException("The address '" + slug + "' is already used by another page, or by a page in the Trash. Choose a different address, or delete that page for good from the Trash.");
         }
     }
 

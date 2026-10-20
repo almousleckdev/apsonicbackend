@@ -18,6 +18,17 @@ public final class NavigationDtos {
             @NotNull(message = "items is required") JsonNode items) {
     }
 
+    /** A menu item the administrator removed; kept in the trash so it can be put back. */
+    public record TrashItemRequest(
+            @NotNull(message = "item is required") JsonNode item,
+            @jakarta.validation.constraints.Size(max = 255, message = "title is too long") String title) {
+    }
+
+    /** Which footer section (column) a page goes under; the section is created when it does not exist yet. */
+    public record FooterPageRequest(
+            @NotNull(message = "section is required") @jakarta.validation.constraints.Size(min = 1, max = 60, message = "section must be 1-60 characters") String section) {
+    }
+
     public record VersionRequest(@NotNull(message = "expectedVersion is required") Long expectedVersion) {
     }
 

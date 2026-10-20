@@ -49,6 +49,32 @@ public class NavigationController {
         return ApiResponse.success("Menu draft saved", navigation.saveDraft(key(menu), request.expectedVersion(), request.items()));
     }
 
+    @PostMapping("/api/v1/admin/navigation/{menu}/trash")
+    @PreAuthorize("hasAuthority('MANAGE_NAVIGATION')")
+    public ApiResponse<MenuView> trash(@PathVariable String menu, @Valid @RequestBody TrashItemRequest request) {
+        return ApiResponse.success("Menu item moved to the trash", navigation.trashItem(key(menu), request.item(), request.title()));
+    }
+
+    @PostMapping("/api/v1/admin/navigation/{menu}/reset")
+    @PreAuthorize("hasAuthority('MANAGE_NAVIGATION')")
+    public ApiResponse<MenuView> reset(@PathVariable String menu, @Valid @RequestBody VersionRequest request) {
+        return ApiResponse.success("The original menu is back", navigation.resetToOriginal(key(menu), request.expectedVersion()));
+    }
+
+    @PutMapping("/api/v1/admin/navigation/footer/pages/{pageId}")
+    @PreAuthorize("hasAuthority('MANAGE_NAVIGATION')")
+    public ApiResponse<Void> showPageInFooter(@PathVariable long pageId, @Valid @RequestBody FooterPageRequest request) {
+        navigation.showPageInFooter(pageId, request.section());
+        return ApiResponse.success("The page will show in the footer", null);
+    }
+
+    @DeleteMapping("/api/v1/admin/navigation/footer/pages/{pageId}")
+    @PreAuthorize("hasAuthority('MANAGE_NAVIGATION')")
+    public ApiResponse<Void> hidePageFromFooter(@PathVariable long pageId) {
+        navigation.hidePageFromFooter(pageId);
+        return ApiResponse.success("The page no longer shows in the footer", null);
+    }
+
     @PostMapping("/api/v1/admin/navigation/{menu}/publish")
     @PreAuthorize("hasAuthority('MANAGE_NAVIGATION')")
     public ApiResponse<MenuView> publish(@PathVariable String menu, @Valid @RequestBody VersionRequest request) {

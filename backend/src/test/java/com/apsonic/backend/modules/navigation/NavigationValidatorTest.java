@@ -101,10 +101,10 @@ class NavigationValidatorTest {
     @Test
     void pageReferencesMustExistAndPublishNeedsPublishedPages() throws Exception {
         JsonNode menu = json("[{'kind':'PAGE','pageId':9,'labels':{'en':'Gone'}}]");
-        assertThat(complains(validator.validate(MenuKey.HEADER, menu, Map.of(), false), "no longer exists")).isTrue();
+        assertThat(complains(validator.validate(MenuKey.HEADER, menu, Map.of(), false), "deleted or archived")).isTrue();
         Map<Long, CmsPage> draft = Map.of(9L, page(9, PageStatus.DRAFT));
         assertThat(validator.validate(MenuKey.HEADER, menu, draft, false).valid()).isTrue();
-        assertThat(complains(validator.validate(MenuKey.HEADER, menu, draft, true), "Publish the page")).isTrue();
+        assertThat(complains(validator.validate(MenuKey.HEADER, menu, draft, true), "is not published yet")).isTrue();
         assertThat(validator.validate(MenuKey.HEADER, menu, Map.of(9L, page(9, PageStatus.ARCHIVED)), false).valid()).isFalse();
     }
 

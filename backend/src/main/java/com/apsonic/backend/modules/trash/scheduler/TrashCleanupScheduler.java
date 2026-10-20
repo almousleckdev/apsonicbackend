@@ -31,6 +31,11 @@ public class TrashCleanupScheduler {
                 log.error("Failed to cleanup trash for table " + table, e);
             }
         }
+        try {
+            jdbcTemplate.update("DELETE FROM cms_navigation_trash WHERE deleted_at < NOW() - INTERVAL '3 months'");
+        } catch (Exception e) {
+            log.error("Failed to cleanup trash for navigation items", e);
+        }
         log.info("Finished automatic trash cleanup");
     }
 }

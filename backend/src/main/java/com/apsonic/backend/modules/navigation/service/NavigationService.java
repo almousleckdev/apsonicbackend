@@ -17,7 +17,11 @@ import com.apsonic.backend.shared.exception.ResourceNotFoundException;
 import com.apsonic.backend.shared.exception.ValidationFailedException;
 import com.apsonic.backend.shared.util.SecurityUtils;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,6 +46,8 @@ public class NavigationService implements PageReferenceGuard {
     private final NavigationMenuRepository menus;
     private final CmsPageRepository pages;
     private final NavigationValidator validator;
+    private final JdbcTemplate jdbc;
+    private final ObjectMapper json;
 
     // --- admin ------------------------------------------------------------------------------------------------
 
@@ -87,6 +93,167 @@ public class NavigationService implements PageReferenceGuard {
         assertVersion(menu, expectedVersion);
         menu.setDraftItems(menu.getPublishedItems());
         return view(menus.saveAndFlush(menu));
+    }
+
+    /**
+     * Takes the menu offline so the website goes back to its built-in navigation. The draft is kept, so nothing the
+     * administrators typed is lost.
+     */
+    @Transactional
+    public MenuView resetToOriginal(MenuKey key, Long expectedVersion) {
+        NavigationMenu menu = load(key);
+        assertVersion(menu, expectedVersion);
+        menu.setPublishedItems(JsonNodeFactory.instance.arrayNode());
+        menu.setPublishedAt(null);
+        menu.setPublishedBy(null);
+        return view(menus.saveAndFlush(menu));
+    }
+
+    /**
+     * Lists a page under a footer section. The draft always gets it; when the footer is already live it goes into the
+     * live copy as well, so it appears as soon as the page itself is published.
+     */
+    @Transactional
+    public void showPageInFooter(long pageId, String section) {
+        CmsPage page = pages.findById(pageId).orElseThrow(() -> new ResourceNotFoundException("Page", "id", pageId));
+        String sectionName = section.trim();
+        NavigationMenu menu = load(MenuKey.FOOTER);
+        menu.setDraftItems(withPageInSection(menu.getDraftItems(), page, sectionName));
+        if (menu.getPublishedAt() != null) {
+            menu.setPublishedItems(withPageInSection(menu.getPublishedItems(), page, sectionName));
+        }
+        menus.saveAndFlush(menu);
+    }
+
+    @Transactional
+    public void hidePageFromFooter(long pageId) {
+        NavigationMenu menu = load(MenuKey.FOOTER);
+        menu.setDraftItems(withoutPage(menu.getDraftItems(), pageId));
+        if (menu.getPublishedAt() != null) {
+            menu.setPublishedItems(withoutPage(menu.getPublishedItems(), pageId));
+        }
+        menus.saveAndFlush(menu);
+    }
+
+    private static JsonNode withPageInSection(JsonNode items, CmsPage page, String sectionName) {
+        ArrayNode top = (ArrayNode) withoutPage(items, page.getId());
+        com.fasterxml.jackson.databind.node.ObjectNode group = null;
+        for (JsonNode candidate : top) {
+            if ("GROUP".equals(candidate.path("kind").asText())
+                    && sectionName.equalsIgnoreCase(candidate.path("labels").path("en").asText())) {
+                group = (com.fasterxml.jackson.databind.node.ObjectNode) candidate;
+                break;
+            }
+        }
+        JsonNodeFactory f = JsonNodeFactory.instance;
+        if (group == null) {
+            group = f.objectNode();
+            group.put("id", java.util.UUID.randomUUID().toString());
+            group.put("kind", "GROUP");
+            group.set("labels", f.objectNode().put("en", sectionName));
+            group.put("visible", true);
+            group.put("openInNewTab", false);
+            group.set("children", f.arrayNode());
+            top.add(group);
+        }
+        com.fasterxml.jackson.databind.node.ObjectNode link = f.objectNode();
+        link.put("id", java.util.UUID.randomUUID().toString());
+        link.put("kind", "PAGE");
+        link.put("pageId", page.getId().intValue());
+        link.set("labels", f.objectNode().put("en", page.getTitle()));
+        link.put("visible", true);
+        link.put("openInNewTab", false);
+        link.set("children", f.arrayNode());
+        ((ArrayNode) group.get("children")).add(link);
+        return top;
+    }
+
+    /** A copy of the tree without the page's link; sections left empty by that disappear too. */
+    private static JsonNode withoutPage(JsonNode items, long pageId) {
+        ArrayNode out = JsonNodeFactory.instance.arrayNode();
+        if (items == null || !items.isArray()) {
+            return out;
+        }
+        for (JsonNode item : items) {
+            if (item.path("pageId").isIntegralNumber() && item.path("pageId").longValue() == pageId) {
+                continue;
+            }
+            com.fasterxml.jackson.databind.node.ObjectNode copy = item.deepCopy();
+            boolean hadChildren = item.path("children").isArray() && item.path("children").size() > 0;
+            copy.set("children", withoutPage(item.get("children"), pageId));
+            if (hadChildren && "GROUP".equals(copy.path("kind").asText()) && copy.get("children").isEmpty()) {
+                continue;
+            }
+            out.add(copy);
+        }
+        return out;
+    }
+
+    /** Keeps a removed item (with everything under it) in the trash so an administrator can restore it later. */
+    @Transactional
+    public MenuView trashItem(MenuKey key, JsonNode item, String title) {
+        if (item == null || !item.isObject()) {
+            throw new com.apsonic.backend.shared.exception.BadRequestException("A menu item is required");
+        }
+        String label = title == null || title.isBlank() ? item.path("labels").path("en").asText("Untitled item") : title.trim();
+        jdbc.update("INSERT INTO cms_navigation_trash (menu_key, title, item, deleted_by) VALUES (?, ?, ?::jsonb, ?)",
+                key.name(), label, item.toString(), SecurityUtils.getCurrentUsername().orElse("system"));
+        // Take it out of the saved draft too, otherwise it would come back the next time the menu is opened.
+        NavigationMenu menu = load(key);
+        menu.setDraftItems(withoutId(menu.getDraftItems(), item.path("id").asText()));
+        return view(menus.saveAndFlush(menu));
+    }
+
+    private static JsonNode withoutId(JsonNode items, String id) {
+        ArrayNode out = JsonNodeFactory.instance.arrayNode();
+        if (items == null || !items.isArray()) {
+            return out;
+        }
+        for (JsonNode item : items) {
+            if (id.equals(item.path("id").asText())) {
+                continue;
+            }
+            com.fasterxml.jackson.databind.node.ObjectNode copy = item.deepCopy();
+            copy.set("children", withoutId(item.get("children"), id));
+            out.add(copy);
+        }
+        return out;
+    }
+
+    /** Puts a trashed item back at the end of its menu's draft. Nothing goes live until the menu is published. */
+    @Transactional
+    public void restoreTrashedItem(long trashId) {
+        List<Map<String, Object>> rows = jdbc.queryForList("SELECT menu_key, item::text AS item FROM cms_navigation_trash WHERE id = ?", trashId);
+        if (rows.isEmpty()) {
+            throw new ResourceNotFoundException("Trashed menu item", "id", trashId);
+        }
+        NavigationMenu menu = load(MenuKey.valueOf((String) rows.get(0).get("menu_key")));
+        JsonNode item;
+        try {
+            item = json.readTree((String) rows.get(0).get("item"));
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            throw new IllegalStateException("The trashed menu item is unreadable", e);
+        }
+        ArrayNode draft = JsonNodeFactory.instance.arrayNode();
+        menu.getDraftItems().forEach(draft::add);
+        if (!containsId(draft, item.path("id").asText())) {
+            draft.add(item);
+            menu.setDraftItems(draft);
+            menus.saveAndFlush(menu);
+        }
+        jdbc.update("DELETE FROM cms_navigation_trash WHERE id = ?", trashId);
+    }
+
+    private static boolean containsId(JsonNode items, String id) {
+        if (items == null || !items.isArray()) {
+            return false;
+        }
+        for (JsonNode item : items) {
+            if (id.equals(item.path("id").asText()) || containsId(item.get("children"), id)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** The draft as the site would render it after publishing; pages not yet published are flagged {@code pending}. */
