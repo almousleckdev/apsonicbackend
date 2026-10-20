@@ -28,7 +28,7 @@ jobs:
           cache: maven
       # `clean` always: a stale target/ once produced misleading class-format errors.
       - name: Maven verify
-        run: ./mvnw -B -f backend/pom.xml clean verify
+        run: ./backend/mvnw -B -f backend/pom.xml clean verify
 
   image:
     name: Build and scan the container image
@@ -39,7 +39,7 @@ jobs:
       - name: Build image
         run: docker build -t apsonic-backend:ci backend
       - name: Scan image (fail on fixable HIGH/CRITICAL vulnerabilities)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.28.0
         with:
           image-ref: apsonic-backend:ci
           severity: HIGH,CRITICAL
