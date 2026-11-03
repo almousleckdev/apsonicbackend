@@ -197,6 +197,21 @@ docker image prune -a --filter "until=720h"   # old images, monthly
 | `REDIS_PASSWORD` | Edit, then `dc up -d redis backend`. Rate-limit counters and token revocations reset. |
 | `DB_PASSWORD` | Change inside Postgres first (`ALTER USER ... PASSWORD ...`), then edit `.env.production`, then `dc up -d backend`. Changing only the file breaks login to the database. |
 
+## 9b. Email: password reset and account invitations
+
+The CMS sends two emails, both in Chinese: the link for a new account ("set your password", valid 24 hours) and the
+"forgot password" link (valid 1 hour). Each link works once. Email is **off** until a sender mailbox is configured;
+until then, creating a user without a password cannot send the invitation (the admin page says so).
+
+1. Create a sender mailbox, e.g. `noreply@apsonic-moto.com` (Aliyun enterprise mail), and enable SMTP for it.
+2. On the server, in `/opt/apsonic/.env.production` (mode 600), set `MAIL_ENABLED=true`, `MAIL_HOST` (for Aliyun enterprise
+   mail usually `smtp.qiye.aliyun.com`), `MAIL_PORT` (usually `465`), `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM`.
+   `PUBLIC_ORIGIN` must be the site's real address: it is the start of every link in the emails.
+3. Restart the backend: `dc up -d --no-deps backend` (see section 8 for the `dc` helper).
+4. Test: open `/admin/forgot-password`, enter an existing admin's email, and check the inbox.
+
+The mail password is a secret like the others: never commit it, and rotate it with section 9.
+
 ## 10. Known limits — be aware
 
 - **One server = one point of failure.** No automatic failover; downtime during OS reboots and releases is seconds, but a

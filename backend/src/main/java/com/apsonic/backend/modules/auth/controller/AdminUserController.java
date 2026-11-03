@@ -4,6 +4,8 @@ import com.apsonic.backend.modules.auth.dto.request.CreateUserRequest;
 import com.apsonic.backend.modules.auth.dto.request.UpdateUserRequest;
 import com.apsonic.backend.modules.auth.dto.response.RoleResponse;
 import com.apsonic.backend.modules.auth.dto.response.UserManagementResponse;
+import com.apsonic.backend.modules.auth.service.PasswordResetService;
+import com.apsonic.backend.modules.auth.service.UserProvisioningService;
 import com.apsonic.backend.modules.auth.service.UserService;
 import com.apsonic.backend.shared.api.ApiResponse;
 import com.apsonic.backend.shared.api.PageResponse;
@@ -26,6 +28,8 @@ import java.util.List;
 public class AdminUserController {
 
     private final UserService userService;
+    private final UserProvisioningService userProvisioningService;
+    private final PasswordResetService passwordResetService;
 
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<UserManagementResponse>>> getUsersList(
@@ -41,9 +45,15 @@ public class AdminUserController {
 
     @PostMapping
     public ResponseEntity<ApiResponse<UserManagementResponse>> createUser(@Valid @RequestBody CreateUserRequest request) {
-        UserManagementResponse response = userService.createUser(request);
+        UserManagementResponse response = userProvisioningService.create(request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("User created successfully with assigned roles", response));
+    }
+
+    @PostMapping("/{id}/invitation")
+    public ResponseEntity<ApiResponse<Void>> resendInvitation(@PathVariable(name = "id") Long id) {
+        passwordResetService.sendInvitation(id);
+        return ResponseEntity.ok(ApiResponse.success("Invitation email sent", null));
     }
 
     @PutMapping("/{id}")

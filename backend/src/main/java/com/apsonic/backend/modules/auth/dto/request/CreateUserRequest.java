@@ -23,7 +23,7 @@ public class CreateUserRequest {
     @Email(message = "Invalid email format")
     private String email;
 
-    @NotBlank(message = "Password is required")
+    /** Optional. Without one the person receives an email invitation to choose their own password. */
     private String password;
 
     private String firstName;

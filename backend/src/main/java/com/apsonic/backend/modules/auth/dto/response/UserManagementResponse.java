@@ -23,4 +23,6 @@ public class UserManagementResponse {
     private List<String> roles;
     private Instant createdAt;
     private Instant updatedAt;
+    /** Only set when the account was created without a password: whether the invitation email was sent. */
+    private Boolean invitationSent;
 }
