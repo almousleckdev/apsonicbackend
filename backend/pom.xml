@@ -103,6 +103,12 @@
 			<version>${mapstruct.version}</version>
 		</dependency>
 
+		<!-- Outgoing email (password reset and account invitations) -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-mail</artifactId>
+		</dependency>
+
 		<!-- Image resizing/re-encoding for uploads (applies EXIF orientation, which plain ImageIO ignores) -->
 		<dependency>
 			<groupId>net.coobird</groupId>

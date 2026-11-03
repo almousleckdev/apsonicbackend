@@ -40,6 +40,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     static final List<Rule> RULES = List.of(
             new Rule("login", "POST", Pattern.compile("/api/v1/auth/login"), 10, Duration.ofMinutes(1)),
+            new Rule("forgot-password", "POST", Pattern.compile("/api/v1/auth/forgot-password"), 5, Duration.ofMinutes(10)),
+            new Rule("reset-password", "POST", Pattern.compile("/api/v1/auth/reset-password"), 10, Duration.ofMinutes(10)),
             new Rule("refresh", "POST", Pattern.compile("/api/v1/auth/refresh"), 60, Duration.ofMinutes(1)),
             new Rule("contact", "POST", Pattern.compile("/api/v1/contact"), 5, Duration.ofMinutes(10)),
             new Rule("news-views", "POST", Pattern.compile("/api/v1/news/[^/]+/views"), 20, Duration.ofHours(1)));

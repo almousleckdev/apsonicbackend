@@ -103,4 +103,15 @@ class RateLimitIntegrationTest extends BaseIntegrationTest {
                     .andExpect(status().isOk());
         }
     }
+
+    @Test
+    void forgotPasswordIsLimitedPerClient() throws Exception {
+        String ip = freshIp();
+        for (int i = 0; i < 5; i++) {
+            mockMvc.perform(post("/api/v1/auth/forgot-password").with(from(ip)).contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"email\":\"nobody@apsonic.test\"}")).andExpect(status().isOk());
+        }
+        mockMvc.perform(post("/api/v1/auth/forgot-password").with(from(ip)).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"nobody@apsonic.test\"}")).andExpect(status().isTooManyRequests());
+    }
 }
