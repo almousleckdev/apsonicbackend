@@ -21,6 +21,12 @@
 	@not_canonical host {$REDIRECT_FROM_HOST:never.invalid}
 	redir @not_canonical https://{$CANONICAL_HOST:localhost}{uri} permanent
 
+	# Static media from /public is served by Next.js with "max-age=0", so every visit re-downloads multi-MB files.
+	# Let browsers (and any CDN) keep them for 30 days. Optimised images (/_next/image) and build assets
+	# (/_next/static) are already versioned by Next.js; the former gets a long cache here as well.
+	@media path /images/* /categories/* /videos/* /products/* /about/* /timeline/* /dropdown/* /services/* /dashboard/* /data/* /_next/image*
+	header @media >Cache-Control "public, max-age=2592000"
+
 	# Everything goes to the Next.js server, which serves pages and proxies /api and /uploads to the backend.
 	# Caddy sets X-Forwarded-For to the real client address; the backend uses it for rate limiting.
 	reverse_proxy frontend:3000

@@ -33,3 +33,6 @@ gatling-test/gatling.zip
 /test.java
 /update_report*.js
 /docs/memory.md
+
+# Local agent tooling state
+.superpowers/
