@@ -1,7 +1,10 @@
 package com.apsonic.backend.shared.controller;
 
 import com.apsonic.backend.shared.api.ApiResponse;
+import com.apsonic.backend.shared.upload.ImageOptimizer;
 import com.apsonic.backend.shared.upload.UploadContentValidator;
+import com.apsonic.backend.shared.upload.UploadFileType;
+import com.apsonic.backend.shared.upload.VideoOptimizer;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.PostConstruct;
@@ -30,6 +33,8 @@ import java.util.UUID;
 public class MediaUploadController {
 
     private final UploadContentValidator contentValidator;
+    private final ImageOptimizer imageOptimizer;
+    private final VideoOptimizer videoOptimizer;
     private final Path rootUploadDir = Paths.get("uploads").toAbsolutePath().normalize();
 
     private static final long MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
@@ -71,8 +76,20 @@ public class MediaUploadController {
             return ResponseEntity.badRequest().body(ApiResponse.error(validation.reason(), 400, "/api/v1/admin/media/upload"));
         }
 
+        // Photos are shrunk before they are stored so pages stay fast on slow connections. The result can be a different
+        // type than the upload (an opaque PNG photo becomes a JPEG), so the extension is chosen after optimising.
+        UploadFileType storedType = validation.type();
+        byte[] imageBytes = null;
+        if (storedType == UploadFileType.JPEG || storedType == UploadFileType.PNG) {
+            var optimized = imageOptimizer.optimize(file.getBytes(), storedType);
+            if (optimized.isPresent()) {
+                imageBytes = optimized.get().bytes();
+                storedType = optimized.get().type();
+            }
+        }
+
         // Extension comes from the detected type, never from the client-supplied name.
-        String newFilename = UUID.randomUUID() + "." + validation.type().canonicalExtension();
+        String newFilename = UUID.randomUUID() + "." + storedType.canonicalExtension();
         Path targetPath = this.rootUploadDir.resolve(newFilename).normalize();
 
         // Path traversal guard
@@ -80,8 +97,16 @@ public class MediaUploadController {
             return ResponseEntity.badRequest().body(ApiResponse.error("Path traversal detected", 400, "/api/v1/admin/media/upload"));
         }
 
-        try (InputStream in = file.getInputStream()) {
-            Files.copy(in, targetPath);
+        if (imageBytes != null) {
+            Files.write(targetPath, imageBytes, java.nio.file.StandardOpenOption.CREATE_NEW);
+        } else {
+            try (InputStream in = file.getInputStream()) {
+                Files.copy(in, targetPath);
+            }
+        }
+        if (storedType == UploadFileType.MP4) {
+            // Re-encoded in the background; the file at this URL is swapped for a smaller one when ready.
+            videoOptimizer.optimizeAsync(targetPath);
         }
         String fileUrl = "/uploads/" + newFilename;
         log.info("Securely uploaded file: {} -> {}", originalFilename, fileUrl);
