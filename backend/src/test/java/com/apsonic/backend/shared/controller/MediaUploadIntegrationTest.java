@@ -91,4 +91,35 @@ class MediaUploadIntegrationTest extends BaseIntegrationTest {
                 .andExpect(header().string("X-Content-Type-Options", "nosniff"))
                 .andExpect(header().string("Content-Security-Policy", org.hamcrest.Matchers.containsString("sandbox")));
     }
+
+    private static byte[] bigPhotoPng() throws Exception {
+        var img = new java.awt.image.BufferedImage(3000, 2000, java.awt.image.BufferedImage.TYPE_INT_RGB);
+        var rnd = new java.util.Random(1);
+        for (int y = 0; y < 2000; y++) {
+            for (int x = 0; x < 3000; x++) {
+                img.setRGB(x, y, ((x * 255 / 3000 + rnd.nextInt(20)) & 0xFF) << 16 | ((y * 255 / 2000 + rnd.nextInt(20)) & 0xFF) << 8 | rnd.nextInt(256) & 0x3F);
+            }
+        }
+        var out = new java.io.ByteArrayOutputStream();
+        javax.imageio.ImageIO.write(img, "png", out);
+        return out.toByteArray();
+    }
+
+    @Test
+    void largePhotoIsShrunkBeforeItIsStored() throws Exception {
+        byte[] original = bigPhotoPng();
+        String response = mockMvc.perform(multipart("/api/v1/admin/media/upload")
+                        .file(new MockMultipartFile("file", "photo.png", "image/png", original))
+                        .header("Authorization", "Bearer " + adminToken()))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        String url = objectMapper.readTree(response).at("/data/url").asText();
+        Path stored = Paths.get("uploads").toAbsolutePath().resolve(url.substring("/uploads/".length()));
+        created.add(stored);
+
+        // An opaque photo PNG is stored as a much smaller JPEG no wider than 1920px.
+        assertThat(url).endsWith(".jpg");
+        assertThat(Files.size(stored)).isLessThan(original.length / 3);
+        var decoded = javax.imageio.ImageIO.read(stored.toFile());
+        assertThat(decoded.getWidth()).isEqualTo(1920);
+    }
 }

@@ -33,6 +33,7 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
+      INTERNAL_API_URL: http://backend:8080   # server-rendered pages call the backend here, not at localhost
     volumes:
       - next_cache:/app/.next/cache   # image-optimiser cache: avoids re-encoding images after every restart
     networks: [edge, internal]        # edge: serves caddy and fetches remote images; internal: reaches the backend
