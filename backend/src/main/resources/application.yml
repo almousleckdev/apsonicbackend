@@ -7,8 +7,9 @@ spring:
     username: ${MAIL_USERNAME:}
     password: ${MAIL_PASSWORD:}
     properties:
-      mail.smtp.auth: true
+      mail.smtp.auth: ${MAIL_AUTH:true}
       mail.smtp.ssl.enable: ${MAIL_SSL:true}
+      mail.smtp.starttls.enable: ${MAIL_STARTTLS:false}
       mail.smtp.connectiontimeout: 10000
       mail.smtp.timeout: 10000
       mail.smtp.writetimeout: 10000
