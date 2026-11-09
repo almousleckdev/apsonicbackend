@@ -15,5 +15,8 @@ public interface UserService {
     UserManagementResponse updateUser(Long id, UpdateUserRequest request);
     UserManagementResponse toggleUserStatus(Long id, Boolean enabled);
     void deleteUser(Long id);
+    /** Marks a freshly created account as waiting for its owner to choose a password. */
+    void markInvitationPending(Long id);
+    UserManagementResponse getUser(Long id);
     List<RoleResponse> getAllRoles();
 }

@@ -10,6 +10,7 @@ import com.apsonic.backend.modules.auth.entity.User;
 import com.apsonic.backend.modules.auth.repository.RoleRepository;
 import com.apsonic.backend.modules.auth.repository.UserRepository;
 import com.apsonic.backend.modules.auth.service.UserService;
+import com.apsonic.backend.modules.auth.service.UserStatus;
 import com.apsonic.backend.shared.exception.DuplicateResourceException;
 import com.apsonic.backend.shared.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +34,7 @@ public class UserServiceImpl implements UserService {
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private final com.apsonic.backend.modules.auth.repository.RefreshTokenRepository refreshTokenRepository;
+    private final com.apsonic.backend.modules.auth.repository.PasswordTokenRepository passwordTokenRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -99,6 +101,7 @@ public class UserServiceImpl implements UserService {
         }
         if (request.getPassword() != null && !request.getPassword().isBlank()) {
             user.setPassword(passwordEncoder.encode(request.getPassword()));
+            user.setInvitationPending(false);
         }
         if (request.getEnabled() != null) {
             user.setEnabled(request.getEnabled());
@@ -133,6 +136,22 @@ public class UserServiceImpl implements UserService {
         User updated = userRepository.save(user);
         log.info("Toggled user status for ID {} to {}", id, targetStatus);
         return toUserManagementResponse(updated);
+    }
+
+    @Override
+    @Transactional
+    public void markInvitationPending(Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", id));
+        user.setInvitationPending(true);
+        userRepository.save(user);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public UserManagementResponse getUser(Long id) {
+        return toUserManagementResponse(userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", id)));
     }
 
     @Override
@@ -186,6 +205,10 @@ public class UserServiceImpl implements UserService {
                 .toList()
                 : List.of();
 
+        // Only accounts still waiting for their owner need the extra lookup.
+        java.time.Instant linkExpiry = user.isInvitationPending() ? passwordTokenRepository.latestExpiry(user.getId()) : null;
+        UserStatus status = UserStatus.of(user, linkExpiry, java.time.Instant.now());
+
         return UserManagementResponse.builder()
                 .id(user.getId())
                 .username(user.getUsername())
@@ -194,6 +217,8 @@ public class UserServiceImpl implements UserService {
                 .lastName(user.getLastName())
                 .avatarUrl(user.getAvatarUrl())
                 .enabled(user.isEnabled())
+                .status(status.name())
+                .invitationExpiresAt(user.isInvitationPending() ? linkExpiry : null)
                 .roles(roleNames)
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())

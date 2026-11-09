@@ -20,6 +20,10 @@ public class UserManagementResponse {
     private String lastName;
     private String avatarUrl;
     private Boolean enabled;
+    /** ACTIVE, INVITED, INVITATION_EXPIRED, SUSPENDED or LOCKED (see UserStatus). */
+    private String status;
+    /** When the newest invitation or reset link stops working; set while the account is still invited. */
+    private Instant invitationExpiresAt;
     private List<String> roles;
     private Instant createdAt;
     private Instant updatedAt;

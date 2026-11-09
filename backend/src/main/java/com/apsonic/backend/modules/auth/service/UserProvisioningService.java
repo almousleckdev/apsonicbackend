@@ -29,10 +29,15 @@ public class UserProvisioningService {
             request.setPassword(unusablePassword());
         }
         UserManagementResponse created = userService.createUser(request);
-        if (invite && Boolean.TRUE.equals(created.getEnabled())) {
-            created.setInvitationSent(invitationSent(created.getId()));
+        if (!invite) {
+            return created;
         }
-        return created;
+        userService.markInvitationPending(created.getId());
+        Boolean sent = Boolean.TRUE.equals(created.getEnabled()) ? invitationSent(created.getId()) : null;
+        // Read the account again so its status reflects the invitation that was just issued.
+        UserManagementResponse fresh = userService.getUser(created.getId());
+        fresh.setInvitationSent(sent);
+        return fresh;
     }
 
     private boolean invitationSent(Long userId) {

@@ -72,7 +72,10 @@ public class PasswordResetService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
         if (!user.isEnabled()) {
-            throw new BadRequestException("The account is disabled");
+            throw new BadRequestException("The account is suspended. Activate it before sending an invitation.");
+        }
+        if (!user.isInvitationPending()) {
+            throw new BadRequestException("This person has already set a password. Use \"forgot password\" to reset it.");
         }
         emailService.send(composer.compose(user, Purpose.INVITATION, tokenService.issue(user, Purpose.INVITATION)));
     }
@@ -85,6 +88,7 @@ public class PasswordResetService {
             throw new BadRequestException("This link is invalid or has expired");
         }
         user.setPassword(passwordEncoder.encode(newPassword));
+        user.setInvitationPending(false);
         user.setFailedLoginAttempts(0);
         user.setLockTime(null);
         user.setAccountNonLocked(true);

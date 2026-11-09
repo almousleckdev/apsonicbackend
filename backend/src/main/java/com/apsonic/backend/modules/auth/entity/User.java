@@ -69,6 +69,11 @@ public class User extends BaseAuditableEntity {
     @Column(name = "lock_time")
     private Instant lockTime;
 
+    /** True from the moment an account is created by invitation until a password is set. */
+    @Builder.Default
+    @Column(name = "invitation_pending", nullable = false)
+    private boolean invitationPending = false;
+
     @Builder.Default
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
