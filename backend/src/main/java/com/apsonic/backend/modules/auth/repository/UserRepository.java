@@ -28,6 +28,30 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
 
     boolean existsByEnabledTrueAndRoles_Name(String roleName);
 
+    // --- sign-in attempts: single statements, so parallel guesses are all counted -------------------------------
+
+    @org.springframework.data.jpa.repository.Modifying(clearAutomatically = true, flushAutomatically = true)
+    @org.springframework.data.jpa.repository.Query("update User u set u.failedLoginAttempts = u.failedLoginAttempts + 1 where u.id = :id")
+    int incrementFailedAttempts(@org.springframework.data.repository.query.Param("id") Long id);
+
+    @org.springframework.data.jpa.repository.Query("select u.failedLoginAttempts from User u where u.id = :id")
+    int findFailedAttempts(@org.springframework.data.repository.query.Param("id") Long id);
+
+    /** Blocks the account. Returns 1 only for the call that actually started the block. */
+    @org.springframework.data.jpa.repository.Modifying(clearAutomatically = true, flushAutomatically = true)
+    @org.springframework.data.jpa.repository.Query("update User u set u.accountNonLocked = false, u.lockTime = :now where u.id = :id and u.accountNonLocked = true")
+    int lockAccount(@org.springframework.data.repository.query.Param("id") Long id,
+                    @org.springframework.data.repository.query.Param("now") java.time.Instant now);
+
+    /** Lifts a block and starts the count again (the 30 minutes ran out, or an administrator unlocked the account). */
+    @org.springframework.data.jpa.repository.Modifying(clearAutomatically = true, flushAutomatically = true)
+    @org.springframework.data.jpa.repository.Query("update User u set u.accountNonLocked = true, u.failedLoginAttempts = 0, u.lockTime = null where u.id = :id")
+    int unlock(@org.springframework.data.repository.query.Param("id") Long id);
+
+    @org.springframework.data.jpa.repository.Modifying(clearAutomatically = true, flushAutomatically = true)
+    @org.springframework.data.jpa.repository.Query("update User u set u.failedLoginAttempts = 0, u.lockTime = null where u.id = :id and (u.failedLoginAttempts > 0 or u.lockTime is not null)")
+    int clearFailedAttempts(@org.springframework.data.repository.query.Param("id") Long id);
+
     @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"roles"})
     Page<User> findAll(org.springframework.data.jpa.domain.Specification<User> spec, Pageable pageable);
 

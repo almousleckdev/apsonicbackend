@@ -10,6 +10,7 @@ import com.apsonic.backend.modules.auth.entity.User;
 import com.apsonic.backend.modules.auth.repository.RoleRepository;
 import com.apsonic.backend.modules.auth.repository.UserRepository;
 import com.apsonic.backend.modules.auth.service.UserService;
+import com.apsonic.backend.modules.auth.service.LoginLockPolicy;
 import com.apsonic.backend.modules.auth.service.UserStatus;
 import com.apsonic.backend.shared.exception.DuplicateResourceException;
 import com.apsonic.backend.shared.exception.ResourceNotFoundException;
@@ -140,6 +141,18 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
+    public UserManagementResponse unlockUser(Long id) {
+        if (!userRepository.existsById(id)) {
+            throw new ResourceNotFoundException("User", "id", id);
+        }
+        userRepository.unlock(id);
+        log.info("Account ID {} unlocked by {}", id, com.apsonic.backend.shared.util.SecurityUtils.getCurrentUsername().orElse("system"));
+        return toUserManagementResponse(userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", id)));
+    }
+
+    @Override
+    @Transactional
     public void markInvitationPending(Long id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", id));
@@ -219,6 +232,7 @@ public class UserServiceImpl implements UserService {
                 .enabled(user.isEnabled())
                 .status(status.name())
                 .invitationExpiresAt(user.isInvitationPending() ? linkExpiry : null)
+                .lockedUntil(status == UserStatus.LOCKED ? LoginLockPolicy.lockedUntil(user) : null)
                 .roles(roleNames)
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())

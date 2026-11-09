@@ -89,9 +89,13 @@ public class PasswordResetService {
         }
         user.setPassword(passwordEncoder.encode(newPassword));
         user.setInvitationPending(false);
-        user.setFailedLoginAttempts(0);
-        user.setLockTime(null);
-        user.setAccountNonLocked(true);
+        // A new password does not lift a block for wrong passwords: only the 30 minutes running out, or an
+        // administrator, does. Otherwise anyone with access to the mailbox could skip the block.
+        if (!LoginLockPolicy.isLocked(user, java.time.Instant.now())) {
+            user.setFailedLoginAttempts(0);
+            user.setLockTime(null);
+            user.setAccountNonLocked(true);
+        }
         userRepository.save(user);
         refreshTokenRepository.deleteByUser(user);
         log.info("Password set through a one-time link for user ID {}", user.getId());

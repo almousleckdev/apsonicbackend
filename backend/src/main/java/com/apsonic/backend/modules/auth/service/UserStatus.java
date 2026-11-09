@@ -21,7 +21,7 @@ public enum UserStatus {
         if (!user.isEnabled()) {
             return SUSPENDED;
         }
-        if (!user.isAccountNonLocked()) {
+        if (LoginLockPolicy.isLocked(user, now)) {
             return LOCKED;
         }
         if (user.isInvitationPending()) {

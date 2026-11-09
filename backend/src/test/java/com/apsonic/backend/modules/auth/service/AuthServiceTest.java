@@ -57,6 +57,9 @@ class AuthServiceTest extends BaseUnitTest {
     @Mock
     private Authentication authentication;
 
+    @Mock
+    private LoginAttemptService loginAttempts;
+
     @InjectMocks
     private AuthServiceImpl authService;
 
@@ -100,7 +103,6 @@ class AuthServiceTest extends BaseUnitTest {
         given(tokenProvider.generateAccessToken(authentication)).willReturn(fakeToken);
         given(jwtProperties.getExpirationMs()).willReturn(86400000L);
         given(jwtProperties.getRefreshExpirationMs()).willReturn(604800000L);
-        given(userRepository.findByUsernameOrEmail("superadmin", "superadmin")).willReturn(Optional.of(user));
         given(userRepository.findById(1L)).willReturn(Optional.of(user));
         given(authMapper.toUserProfileResponse(user)).willReturn(
                 UserProfileResponse.builder()

@@ -13,6 +13,7 @@ import com.apsonic.backend.modules.auth.mapper.AuthMapper;
 import com.apsonic.backend.modules.auth.repository.RefreshTokenRepository;
 import com.apsonic.backend.modules.auth.repository.UserRepository;
 import com.apsonic.backend.modules.auth.service.AuthService;
+import com.apsonic.backend.modules.auth.service.LoginAttemptService;
 import com.apsonic.backend.modules.auth.service.RefreshTokenCodec;
 import com.apsonic.backend.modules.auth.service.AuthenticationResult;
 import com.apsonic.backend.security.UserPrincipal;
@@ -49,8 +50,8 @@ public class AuthServiceImpl implements AuthService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuthMapper authMapper;
+    private final LoginAttemptService loginAttempts;
 
-    private static final int MAX_FAILED_ATTEMPTS = 5;
     private static final long REUSE_GRACE_SECONDS = 10;
 
     @Override
@@ -59,14 +60,8 @@ public class AuthServiceImpl implements AuthService {
         String identifier = loginRequest.getUsernameOrEmail().trim();
         log.debug("Attempting authentication");
 
-        Optional<User> userOpt = userRepository.findByUsernameOrEmail(identifier, identifier);
-
-        if (userOpt.isPresent()) {
-            User user = userOpt.get();
-            if (!user.isAccountNonLocked()) {
-                throw new LockedException("Your account is locked due to 5 consecutive failed login attempts. Please try again after 30 minutes.");
-            }
-        }
+        // An account blocked for repeated wrong passwords is refused even with the right one.
+        loginAttempts.checkNotLocked(identifier);
 
         Authentication authentication;
         try {
@@ -74,36 +69,17 @@ public class AuthServiceImpl implements AuthService {
                     new UsernamePasswordAuthenticationToken(identifier, loginRequest.getPassword())
             );
         } catch (BadCredentialsException ex) {
-            if (userOpt.isPresent()) {
-                User user = userOpt.get();
-                int attempts = user.getFailedLoginAttempts() + 1;
-                user.setFailedLoginAttempts(attempts);
-                if (attempts >= MAX_FAILED_ATTEMPTS) {
-                    user.setAccountNonLocked(false);
-                    user.setLockTime(Instant.now());
-                    userRepository.save(user);
-                    log.warn("Account id {} locked after {} failed attempts", user.getId(), attempts);
-                    throw new LockedException("Your account has been locked for 30 minutes due to 5 failed login attempts.");
-                } else {
-                    userRepository.save(user);
-                    log.warn("Failed login attempt {}/{} for account id {}", attempts, MAX_FAILED_ATTEMPTS, user.getId());
-                }
+            // Counted in its own transaction: this method is about to fail, which would undo the count.
+            Optional<String> blocked = loginAttempts.recordFailure(identifier);
+            if (blocked.isPresent()) {
+                throw new LockedException(blocked.get());
             }
             throw ex;
         }
 
-        // On successful authentication, reset failed attempts
-        if (userOpt.isPresent()) {
-            User user = userOpt.get();
-            if (user.getFailedLoginAttempts() > 0) {
-                user.setFailedLoginAttempts(0);
-                user.setLockTime(null);
-                userRepository.save(user);
-            }
-        }
-
         SecurityContextHolder.getContext().setAuthentication(authentication);
         UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
+        loginAttempts.clearFailures(userPrincipal.getId());
 
         String accessToken = tokenProvider.generateAccessToken(authentication);
         User user = userRepository.findById(userPrincipal.getId())
@@ -145,7 +121,11 @@ public class AuthServiceImpl implements AuthService {
         }
 
         User user = stored.getUser();
-        if (!user.isEnabled() || !user.isAccountNonLocked() || !user.isAccountNonExpired()
+        if (com.apsonic.backend.modules.auth.service.LoginLockPolicy.isLocked(user, Instant.now())) {
+            // Blocked, not removed: someone else's wrong guesses must not sign the owner out for good.
+            throw new TokenException("Your account is locked. Please try again later or ask an administrator to unlock it.");
+        }
+        if (!user.isEnabled() || !user.isAccountNonExpired()
                 || !user.isCredentialsNonExpired()) {
             refreshTokenRepository.deleteByUser(user);
             throw new TokenException("Account is not active. Please contact an administrator.");
