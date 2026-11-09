@@ -137,6 +137,7 @@ docker save apsonic-backend:$TAG apsonic-frontend:$TAG | gzip | ssh -i ~/.ssh/ap
 ```bash
 cd /opt/apsonic
 ./scripts/deploy.sh apsonic-backend:$TAG apsonic-frontend:$TAG        # or registry/image:tag names
+./scripts/warm-image-cache.sh https://staging.apsonic-moto.com       # optional: pre-resize pictures so the first visitor does not wait
 ```
 The script validates the config, starts everything, waits until all services are healthy, and **rolls back automatically**
 to the previous release if the new one does not become healthy. First start takes about a minute (database migrations run).
