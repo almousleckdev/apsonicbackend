@@ -15,4 +15,6 @@ public class TokenRefreshResponse {
     @Builder.Default
     private String tokenType = "Bearer";
     private Long expiresIn;
+    /** The signed-in user, so the browser does not need a second request to /auth/me right after refreshing. */
+    private UserProfileResponse user;
 }

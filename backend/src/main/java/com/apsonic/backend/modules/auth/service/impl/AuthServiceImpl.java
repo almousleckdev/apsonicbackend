@@ -166,6 +166,7 @@ public class AuthServiceImpl implements AuthService {
                 .accessToken(newAccessToken)
                 .tokenType("Bearer")
                 .expiresIn(jwtProperties.getExpirationMs() / 1000)
+                .user(authMapper.toUserProfileResponse(user))
                 .build();
         return new AuthenticationResult<>(response, newRefreshToken);
     }
