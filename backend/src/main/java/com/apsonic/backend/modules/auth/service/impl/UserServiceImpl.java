@@ -51,10 +51,10 @@ public class UserServiceImpl implements UserService {
     @Transactional
     public UserManagementResponse createUser(CreateUserRequest request) {
         if (userRepository.existsByUsername(request.getUsername())) {
-            throw new DuplicateResourceException("User", "username", request.getUsername());
+            throw new DuplicateResourceException("This username is already taken.");
         }
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new DuplicateResourceException("User", "email", request.getEmail());
+            throw new DuplicateResourceException("An account with this email address already exists.");
         }
 
         Set<Role> assignedRoles = resolveRoles(request.getRoles());
@@ -83,7 +83,7 @@ public class UserServiceImpl implements UserService {
 
         if (request.getEmail() != null && !request.getEmail().equals(user.getEmail())) {
             if (userRepository.existsByEmail(request.getEmail())) {
-                throw new DuplicateResourceException("User", "email", request.getEmail());
+                throw new DuplicateResourceException("An account with this email address already exists.");
             }
             user.setEmail(request.getEmail());
         }

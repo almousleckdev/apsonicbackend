@@ -22,5 +22,8 @@ public class ErrorResponse {
     private String error;
     private String message;
     private String path;
+    /** Quote this when reporting a problem: it matches the line in the server log. */
+    @Builder.Default
+    private String traceId = com.apsonic.backend.shared.filter.TraceIds.current();
     private List<ValidationError> errors;
 }
