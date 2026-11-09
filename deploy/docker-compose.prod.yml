@@ -1,7 +1,7 @@
 # Production stack for a single Linux host (e.g. one Alibaba Cloud ECS).
 #   caddy -> frontend (Next.js) -> backend (Spring Boot) -> postgres / redis
-# Only caddy publishes ports. Postgres, Redis and the backend are on an internal network with no route to the
-# internet and no published ports. All secrets come from .env.production (never committed).
+# Only caddy publishes ports. Postgres and Redis are on an internal network with no route to the internet; the backend
+# is on it too, plus an outbound-only network so it can send email. Nothing but caddy publishes ports. All secrets come from .env.production (never committed).
 name: apsonic
 
 services:
@@ -76,7 +76,7 @@ services:
       MAIL_FROM: ${MAIL_FROM:-}
     volumes:
       - uploads:/app/uploads
-    networks: [internal]
+    networks: [internal, egress]      # egress: outbound only, so the backend can reach the SMTP server
     depends_on:
       postgres:
         condition: service_healthy
@@ -126,6 +126,7 @@ networks:
   edge: {}
   internal:
     internal: true   # no outbound internet, not reachable from the host
+  egress: {}         # outbound internet for the backend only (SMTP); nothing else joins it, no ports are published
 
 volumes:
   pgdata:
