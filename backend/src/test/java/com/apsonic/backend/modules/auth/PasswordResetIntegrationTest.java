@@ -29,6 +29,8 @@ import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -278,6 +280,87 @@ class PasswordResetIntegrationTest extends BaseIntegrationTest {
         String second = lastTokenSentTo(email);
         assertThat(resetStatus(first, STRONG)).isEqualTo(400);
         assertThat(resetStatus(second, STRONG)).isEqualTo(200);
+    }
+
+    private JsonNode listedUser(String email) throws Exception {
+        String response = mockMvc.perform(get("/api/v1/admin/users").param("query", email)
+                        .header("Authorization", "Bearer " + adminToken()))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        for (JsonNode user : objectMapper.readTree(response).at("/data/content")) {
+            if (email.equals(user.get("email").asText())) {
+                return user;
+            }
+        }
+        throw new AssertionError("user not listed: " + email);
+    }
+
+    @Test
+    void anInvitedPersonIsNotActiveUntilTheyChooseAPassword() throws Exception {
+        String email = "invitee-" + UUID.randomUUID() + "@apsonic.test";
+
+        JsonNode created = createUserWithoutPassword(email);
+        assertThat(created.get("status").asText()).isEqualTo("INVITED");
+        assertThat(created.get("invitationExpiresAt").isNull()).isFalse();
+        assertThat(listedUser(email).get("status").asText()).isEqualTo("INVITED");
+
+        assertThat(resetStatus(lastTokenSentTo(email), STRONG)).isEqualTo(200);
+
+        JsonNode active = listedUser(email);
+        assertThat(active.get("status").asText()).isEqualTo("ACTIVE");
+        assertThat(active.get("invitationExpiresAt").isNull()).isTrue();
+    }
+
+    @Test
+    void anExpiredInvitationIsShownAsExpiredAndCanBeSentAgain() throws Exception {
+        String email = "invitee-" + UUID.randomUUID() + "@apsonic.test";
+        long id = createUserWithoutPassword(email).get("id").asLong();
+        jdbc.update("UPDATE password_tokens SET expires_at = NOW() - INTERVAL '1 minute' "
+                + "WHERE user_id = (SELECT id FROM users WHERE email = ?)", email);
+
+        assertThat(listedUser(email).get("status").asText()).isEqualTo("INVITATION_EXPIRED");
+
+        RecordingMail.SENT.clear();
+        mockMvc.perform(post("/api/v1/admin/users/" + id + "/invitation").header("Authorization", "Bearer " + adminToken()))
+                .andExpect(status().isOk());
+        assertThat(listedUser(email).get("status").asText()).isEqualTo("INVITED");
+        assertThat(resetStatus(lastTokenSentTo(email), STRONG)).isEqualTo(200);
+    }
+
+    @Test
+    void aSuspendedInvitationShowsAsSuspendedAndCannotBeResent() throws Exception {
+        String email = "invitee-" + UUID.randomUUID() + "@apsonic.test";
+        long id = createUserWithoutPassword(email).get("id").asLong();
+
+        mockMvc.perform(patch("/api/v1/admin/users/" + id + "/status").param("enabled", "false")
+                .header("Authorization", "Bearer " + adminToken())).andExpect(status().isOk());
+
+        assertThat(listedUser(email).get("status").asText()).isEqualTo("SUSPENDED");
+        mockMvc.perform(post("/api/v1/admin/users/" + id + "/invitation").header("Authorization", "Bearer " + adminToken()))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void anInvitationCannotBeResentToSomeoneWhoAlreadyHasAPassword() throws Exception {
+        String email = "invitee-" + UUID.randomUUID() + "@apsonic.test";
+        long id = createUserWithoutPassword(email).get("id").asLong();
+        assertThat(resetStatus(lastTokenSentTo(email), STRONG)).isEqualTo(200);
+
+        mockMvc.perform(post("/api/v1/admin/users/" + id + "/invitation").header("Authorization", "Bearer " + adminToken()))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void forgotPasswordLinksAlsoLastTwentyFourHoursAndWorkOnce() throws Exception {
+        String email = createUserWithPassword("Old-Strong#Pass1");
+        forgot(email);
+        String token = lastTokenSentTo(email);
+
+        Long hours = jdbc.queryForObject(
+                "SELECT ROUND(EXTRACT(EPOCH FROM (t.expires_at - t.created_at)) / 3600) FROM password_tokens t "
+                        + "JOIN users u ON u.id = t.user_id WHERE u.email = ? AND t.purpose = 'RESET'", Long.class, email);
+        assertThat(hours).isEqualTo(24L);
+        assertThat(resetStatus(token, STRONG)).isEqualTo(200);
+        assertThat(resetStatus(token, "Another-Strong#Pass2")).isEqualTo(400);
     }
 
     @Test

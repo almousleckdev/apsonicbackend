@@ -183,9 +183,36 @@ public class GlobalExceptionHandler {
                 "This item was changed by someone else. Reload it to see the latest version.", request);
     }
 
+    /** A write the database refused (duplicate value, missing parent, empty required field): a clear 4xx, never SQL. */
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrity(org.springframework.dao.DataIntegrityViolationException ex,
+                                                              HttpServletRequest request) {
+        DatabaseConflictTranslator.Translation translation = DatabaseConflictTranslator.translate(ex);
+        log.warn("Database refused a change on [{}]: {} ({})", request.getRequestURI(), translation.message(),
+                ex.getMostSpecificCause().getClass().getSimpleName());
+        return clientError(translation.status(), translation.message(), request);
+    }
+
+    /** The database is unreachable or timed out: tell the user to retry instead of reporting a bug. */
+    @ExceptionHandler({org.springframework.dao.TransientDataAccessException.class,
+            org.springframework.dao.DataAccessResourceFailureException.class,
+            org.springframework.transaction.CannotCreateTransactionException.class})
+    public ResponseEntity<ErrorResponse> handleDatabaseUnavailable(Exception ex, HttpServletRequest request) {
+        log.error("Database unavailable on [{}]: {}", request.getRequestURI(), ex.getClass().getSimpleName(), ex);
+        return clientError(HttpStatus.SERVICE_UNAVAILABLE,
+                "The service is temporarily unavailable. Please try again in a moment.", request);
+    }
+
     @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
     public ResponseEntity<ErrorResponse> handleUploadTooLarge(Exception ex, HttpServletRequest request) {
         return clientError(HttpStatus.PAYLOAD_TOO_LARGE, "Upload exceeds the maximum allowed size", request);
+    }
+
+    /** Plain wording for the user, plus the reference support needs to find the log line. */
+    static String unexpectedErrorMessage() {
+        String reference = com.apsonic.backend.shared.filter.TraceIds.current();
+        String base = "Something went wrong on our side. Please try again; if it keeps happening, contact support";
+        return reference == null ? base + "." : base + " and quote reference " + reference + ".";
     }
 
     private ResponseEntity<ErrorResponse> clientError(HttpStatus status, String message, HttpServletRequest request) {
@@ -207,7 +234,7 @@ public class GlobalExceptionHandler {
                 .timestamp(Instant.now())
                 .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
                 .error(HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase())
-                .message("An unexpected internal error occurred. Please contact system administrator.")
+                .message(unexpectedErrorMessage())
                 .path(request.getRequestURI())
                 .build();
 

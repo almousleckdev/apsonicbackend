@@ -63,7 +63,7 @@ public class UserPrincipal implements UserDetails {
                 .enabled(user.isEnabled())
                 .accountNonExpired(user.isAccountNonExpired())
                 .credentialsNonExpired(user.isCredentialsNonExpired())
-                .accountNonLocked(user.isAccountNonLocked())
+                .accountNonLocked(!com.apsonic.backend.modules.auth.service.LoginLockPolicy.isLocked(user, java.time.Instant.now()))
                 .authorities(authorities)
                 .build();
     }

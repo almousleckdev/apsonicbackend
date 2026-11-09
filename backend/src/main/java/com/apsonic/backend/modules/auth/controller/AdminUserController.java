@@ -50,6 +50,12 @@ public class AdminUserController {
                 .body(ApiResponse.success("User created successfully with assigned roles", response));
     }
 
+    /** Lifts a block caused by repeated wrong passwords. Administrators and super administrators only (class-level rule). */
+    @PostMapping("/{id}/unlock")
+    public ResponseEntity<ApiResponse<UserManagementResponse>> unlockUser(@PathVariable(name = "id") Long id) {
+        return ResponseEntity.ok(ApiResponse.success("Account unlocked", userService.unlockUser(id)));
+    }
+
     @PostMapping("/{id}/invitation")
     public ResponseEntity<ApiResponse<Void>> resendInvitation(@PathVariable(name = "id") Long id) {
         passwordResetService.sendInvitation(id);

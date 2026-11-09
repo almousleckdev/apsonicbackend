@@ -27,6 +27,10 @@ public interface PasswordTokenRepository extends JpaRepository<PasswordToken, Lo
     @Query("update PasswordToken t set t.usedAt = :now where t.user = :user and t.usedAt is null")
     int invalidateOutstanding(@Param("user") User user, @Param("now") Instant now);
 
+    /** When the newest link sent to the user stops working, or null if none was ever sent. */
+    @Query("select max(t.expiresAt) from PasswordToken t where t.user.id = :userId")
+    Instant latestExpiry(@Param("userId") Long userId);
+
     @Modifying
     int deleteByExpiresAtBefore(Instant cutoff);
 }

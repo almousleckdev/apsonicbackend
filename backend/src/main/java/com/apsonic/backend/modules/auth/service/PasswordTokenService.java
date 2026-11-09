@@ -24,7 +24,7 @@ import java.util.HexFormat;
 public class PasswordTokenService {
 
     static final Duration INVITATION_VALIDITY = Duration.ofHours(24);
-    static final Duration RESET_VALIDITY = Duration.ofHours(1);
+    static final Duration RESET_VALIDITY = Duration.ofHours(24);
     private static final int TOKEN_BYTES = 32;
     private static final Duration KEEP_EXPIRED_FOR = Duration.ofDays(7);
 

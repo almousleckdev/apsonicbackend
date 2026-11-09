@@ -72,7 +72,10 @@ public class PasswordResetService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
         if (!user.isEnabled()) {
-            throw new BadRequestException("The account is disabled");
+            throw new BadRequestException("The account is suspended. Activate it before sending an invitation.");
+        }
+        if (!user.isInvitationPending()) {
+            throw new BadRequestException("This person has already set a password. Use \"forgot password\" to reset it.");
         }
         emailService.send(composer.compose(user, Purpose.INVITATION, tokenService.issue(user, Purpose.INVITATION)));
     }
@@ -85,9 +88,14 @@ public class PasswordResetService {
             throw new BadRequestException("This link is invalid or has expired");
         }
         user.setPassword(passwordEncoder.encode(newPassword));
-        user.setFailedLoginAttempts(0);
-        user.setLockTime(null);
-        user.setAccountNonLocked(true);
+        user.setInvitationPending(false);
+        // A new password does not lift a block for wrong passwords: only the 30 minutes running out, or an
+        // administrator, does. Otherwise anyone with access to the mailbox could skip the block.
+        if (!LoginLockPolicy.isLocked(user, java.time.Instant.now())) {
+            user.setFailedLoginAttempts(0);
+            user.setLockTime(null);
+            user.setAccountNonLocked(true);
+        }
         userRepository.save(user);
         refreshTokenRepository.deleteByUser(user);
         log.info("Password set through a one-time link for user ID {}", user.getId());
