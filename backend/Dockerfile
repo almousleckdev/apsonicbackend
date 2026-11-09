@@ -21,7 +21,8 @@ RUN ./mvnw -B -q -DskipTests package \
 FROM eclipse-temurin:21-jre
 # ffmpeg: re-encodes uploaded videos in the background so they load quickly (see VideoOptimizer).
 RUN apt-get update \
- && apt-get install -y --no-install-recommends curl ffmpeg \
+ # apt and libapt-pkg7.0 are named so the base image's older copies are upgraded (CVE-2026-109518, fixed in 3.2.1ubuntu0.1).
+ && apt-get install -y --no-install-recommends curl ffmpeg apt libapt-pkg7.0 \
  && rm -rf /var/lib/apt/lists/* \
  && useradd --system --uid 10001 --home-dir /app --shell /usr/sbin/nologin app \
  && mkdir -p /app/uploads \
