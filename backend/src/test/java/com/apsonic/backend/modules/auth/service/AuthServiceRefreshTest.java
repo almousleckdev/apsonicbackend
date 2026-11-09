@@ -33,6 +33,8 @@ class AuthServiceRefreshTest extends BaseUnitTest {
     private JwtTokenProvider tokenProvider;
     @Mock
     private JwtProperties jwtProperties;
+    @Mock
+    private com.apsonic.backend.modules.auth.mapper.AuthMapper authMapper;
 
     @InjectMocks
     private AuthServiceImpl authService;
@@ -61,8 +63,13 @@ class AuthServiceRefreshTest extends BaseUnitTest {
         when(jwtProperties.getExpirationMs()).thenReturn(900_000L);
         when(jwtProperties.getRefreshExpirationMs()).thenReturn(604_800_000L);
 
+        com.apsonic.backend.modules.auth.dto.response.UserProfileResponse profile =
+                new com.apsonic.backend.modules.auth.dto.response.UserProfileResponse();
+        when(authMapper.toUserProfileResponse(user)).thenReturn(profile);
+
         AuthenticationResult<TokenRefreshResponse> result = authService.refreshToken(RAW);
 
+        assertThat(result.response().getUser()).isSameAs(profile);
         assertThat(current.isRevoked()).isTrue();
         assertThat(result.refreshToken()).isNotEqualTo(RAW);
         ArgumentCaptor<RefreshToken> saved = ArgumentCaptor.forClass(RefreshToken.class);
