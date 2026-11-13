@@ -186,7 +186,7 @@ dc ps                       # status and health
 dc logs -f --tail 100 backend
 dc logs --since 1h caddy | grep -i error
 df -h /; docker system df   # disk
-docker image prune -a --filter "until=720h"   # old images, monthly
+./scripts/prune-images.sh --dry-run   # old release images; deploy.sh already runs it (without --dry-run) after every healthy release
 ```
 
 ## 9. Secret rotation

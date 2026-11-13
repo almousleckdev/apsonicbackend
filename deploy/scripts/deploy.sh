@@ -22,6 +22,9 @@ echo "==> Starting release: $BACKEND_IMAGE / $FRONTEND_IMAGE"
 if compose up -d --pull missing --remove-orphans --wait --wait-timeout "$WAIT_SECONDS"; then
   echo "==> Healthy."
   compose ps
+  # Housekeeping only: a failure here must never turn a good release into a failed one.
+  echo "==> Removing old images (the running and the previous release are kept)"
+  "$(dirname "$0")/prune-images.sh" || echo "!! Image cleanup failed; the release itself is fine." >&2
   exit 0
 fi
 
